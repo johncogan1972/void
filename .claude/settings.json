@@ -1,0 +1,5 @@
+{ "permissions": { "allow": [
+  "Bash(godot --headless --path:*)",
+  "Bash(gdlint:*)",
+  "Bash(gdformat:*)"
+] } }
