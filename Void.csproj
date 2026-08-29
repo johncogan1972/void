@@ -7,4 +7,13 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+
+  <!-- Godot.NET.Sdk globs **/*.cs; the test project is built separately. -->
+  <ItemGroup>
+    <Compile Remove="Void.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Void.Tests" />
+  </ItemGroup>
 </Project>

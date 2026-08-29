@@ -4,7 +4,7 @@
 #   tests/check.sh            # all rungs
 #   tests/check.sh 1 2 3      # only these rungs
 #
-# Rungs: 1 parse  2 lint  3 build  4 import  5 smoke  6 unit tests
+# Rungs: 1 parse  2 lint  3 build  4 cstest  5 import  6 smoke  7 gdtest
 #
 # Output is deliberately terse: one line per rung. Error detail is printed
 # only for the rung that fails. Exit code is the rung number that failed.
@@ -18,7 +18,7 @@ GODOT="${GODOT:-godot}"
 ERR_RE='SCRIPT ERROR|ERROR:|Parse Error|Failed to load|Cannot open|Condition ".*" is true'
 
 RUNGS=("$@")
-[[ ${#RUNGS[@]} -eq 0 ]] && RUNGS=(1 2 3 4 5 6)
+[[ ${#RUNGS[@]} -eq 0 ]] && RUNGS=(1 2 3 4 5 6 7)
 
 wants() { [[ " ${RUNGS[*]} " == *" $1 "* ]]; }
 pass()  { printf '%-8s PASS  %s\n' "$1" "${2:-}"; }
@@ -80,40 +80,56 @@ if wants 3; then
 	fi
 fi
 
-# --- rung 4: import ----------------------------------------------------------
-# Catches broken script references, missing resources, bad UIDs in scenes.
+# --- rung 4: C# tests --------------------------------------------------------
+# xunit. Runs without booting the engine, so it sits before the Godot rungs.
 if wants 4; then
+	if [[ ! -f "$ROOT/Void.Tests/Void.Tests.csproj" ]]; then
+		skip cstest "no Void.Tests project"
+	elif ! command -v dotnet >/dev/null 2>&1; then
+		skip cstest "dotnet not installed"
+	else
+		out=$(dotnet test "$ROOT/Void.Tests/Void.Tests.csproj" --nologo -v quiet 2>&1)
+		if [[ $? -ne 0 ]]; then
+			fail cstest; echo "$out" | grep -E 'error|Failed|Assert' | head -20; exit 4
+		fi
+		pass cstest "$(echo "$out" | grep -oP 'Passed:\s*\K[0-9]+' | tail -1) passed"
+	fi
+fi
+
+# --- rung 5: import ----------------------------------------------------------
+# Catches broken script references, missing resources, bad UIDs in scenes.
+if wants 5; then
 	out=$("$GODOT" --headless --path "$ROOT" --import 2>&1)
 	if echo "$out" | grep -qE "$ERR_RE"; then
-		fail import; detail "$out"; exit 4
+		fail import; detail "$out"; exit 5
 	fi
 	pass import
 fi
 
-# --- rung 5: smoke -----------------------------------------------------------
+# --- rung 6: smoke -----------------------------------------------------------
 # Boots the main scene headless for a few frames. Catches null refs, missing
 # nodes and mis-wired signals — the things unit tests will never see.
-if wants 5; then
+if wants 6; then
 	main_scene=$(grep -oP '^run/main_scene="\K[^"]+' "$ROOT/project.godot" 2>/dev/null)
 	if [[ -z "$main_scene" ]]; then
 		skip smoke "no run/main_scene set in project.godot"
 	else
 		out=$("$GODOT" --headless --path "$ROOT" --quit-after 120 2>&1)
 		if echo "$out" | grep -qE "$ERR_RE"; then
-			fail smoke "$main_scene"; detail "$out"; exit 5
+			fail smoke "$main_scene"; detail "$out"; exit 6
 		fi
 		pass smoke "$main_scene, 120 frames"
 	fi
 fi
 
-# --- rung 6: unit tests ------------------------------------------------------
-if wants 6; then
+# --- rung 7: GDScript tests --------------------------------------------------
+if wants 7; then
 	out=$("$GODOT" --headless --path "$ROOT" --script res://tests/run_tests.gd 2>&1)
 	summary=$(echo "$out" | grep -E '^[0-9]+ passed, [0-9]+ failed$' | tail -1)
 	if [[ "$summary" != *"0 failed"* ]] || echo "$out" | grep -qE 'SCRIPT ERROR'; then
-		fail tests "$summary"
+		fail gdtest "$summary"
 		echo "$out" | grep -vE '^(Godot Engine|--|$)' | head -20
-		exit 6
+		exit 7
 	fi
-	pass tests "$summary"
+	pass gdtest "$summary"
 fi
