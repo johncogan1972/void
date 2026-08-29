@@ -79,7 +79,16 @@ and the ticket in both directions.
 **Determinism (world generation only):**
 - All randomness from the world seed via seeded streams. Use xoshiro256++, never `System.Random`, `DateTime.Now`, `Guid.NewGuid()`, hardware entropy.
 - Iteration order affecting generated output must be explicit — sorted collections, never `HashSet`/`Dictionary` order.
-- CI test: regenerate reference seed → hash the world → must match golden.
+- CI test: regenerate reference seed → hash the payload → must match golden.
+  `Void.Tests/ReferenceSeedTests.cs` holds the golden SHA-256;
+  `src/Determinism/` builds the payload. The payload source is swappable
+  (`ReferencePayload.Current`) — Phase 0 hashes a fixed RNG draw sequence,
+  Phase 2 should point it at a generated world.
+- **Regenerating the golden is a deliberate act, never a fix for a red build.**
+  The failure message prints the actual hash; paste it into `GoldenHash` in the
+  same commit as the generator change and say why in the commit message. A
+  moved hash means every existing world generates differently. If you did not
+  intend to change generation, the test found a bug — fix the bug.
 - Runtime (combat, loot) is deliberately non-deterministic; determinism rule applies to world gen only.
 
 **Multiplayer-ready from day 1:**
@@ -138,6 +147,7 @@ Always pass --path explicitly; never rely on cwd. Godot 4.7.
 
 - Verify all:    tests/check.sh            (parse, lint, build, cstest, import, smoke, gdtest)
 - Verify some:   tests/check.sh 1 2        (rung numbers; exits with failing rung)
+- As CI runs it: tests/check.sh --strict   (a SKIP becomes a FAIL)
 - Parse check:   godot --headless --path <root> --check-only --script res://path/to.gd
 - Reimport:      godot --headless --path <root> --import
 - Run tests:     godot --headless --path <root> --script res://tests/run_tests.gd
@@ -156,7 +166,8 @@ Rules:
 - `src/BuildInfo.cs` proves the C# assembly loads. Delete it once real C# exists.
 - `Void.Tests/HarnessTests.cs` proves the xunit harness reaches the game assembly.
   Delete it once real C# tests exist.
-- A SKIP is not a PASS. Rungs 2/3/4 skip when their tool is missing.
+- A SKIP is not a PASS. Rungs 2/3/4 skip when their tool is missing. `--strict`
+  (or `CHECK_STRICT=1`) turns those skips into failures; CI always uses it.
 - Godot must be the .NET build (`godot --version` shows `.mono`), or rung 3 output
   compiles but the engine cannot load it.
 

@@ -1,0 +1,113 @@
+# Verification ladder on every push (VOID-008).
+#
+# Runs tests/check.sh --strict: parse, lint, build, cstest, import, smoke,
+# gdtest. Strict mode turns a SKIP into a FAIL, because rung 2 skips without
+# gdlint and rungs 3/4 skip without dotnet -- without it the ladder could go
+# green having checked almost nothing.
+#
+# Triggers cover every branch on push, because feature PRs target `dev`, not
+# the default branch, and a `main`-only trigger would never fire on real work.
+# An open PR therefore gets two runs (push + pull_request); that is the price
+# of also covering feature branches that have no PR yet.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Must be the .NET ("mono") build -- the plain build cannot compile C#.
+  # Keep in step with the Godot.NET.Sdk version in Void.csproj.
+  GODOT_VERSION: 4.7.1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+
+jobs:
+  ladder:
+    name: Verification ladder
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Void.csproj targets net8.0, Void.Tests targets net10.0. Both needed.
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install gdlint
+        run: pip install 'gdtoolkit~=4.3'
+
+      # ~100 MB download; cached by version so only a version bump pays for it.
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-mono-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot (.NET build)
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          name="Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64"
+          url="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/${name}.zip"
+          mkdir -p ~/godot
+          curl -fsSL -o /tmp/godot.zip "$url"
+          unzip -q /tmp/godot.zip -d ~/godot
+
+      - name: Put Godot on PATH
+        run: |
+          set -euo pipefail
+          # The binary must stay beside its GodotSharp/ directory, so symlink it
+          # rather than copying it out.
+          bin="$(find ~/godot -maxdepth 2 -type f -name 'Godot_v*_mono_linux.x86_64' | head -1)"
+          if [[ -z "$bin" ]]; then
+            echo "Godot binary not found under ~/godot"; find ~/godot -maxdepth 2; exit 1
+          fi
+          chmod +x "$bin"
+          sudo ln -sf "$bin" /usr/local/bin/godot
+          godot --version
+
+      - name: Assert Godot is the .NET build
+        run: |
+          set -euo pipefail
+          # The plain build runs the GDScript rungs fine and silently fails to
+          # load the C# assembly, so this must be checked, not assumed.
+          godot --version | grep -q '\.mono\.' || {
+            echo "Godot is not the .NET build: $(godot --version)"; exit 1
+          }
+
+      # A cold checkout has no .godot/ cache. Godot needs a pass (sometimes two)
+      # to generate it; rung 5 then verifies the import properly.
+      - name: Warm the import cache
+        run: |
+          godot --headless --path . --import >/dev/null 2>&1 || true
+          godot --headless --path . --import >/dev/null 2>&1 || true
+
+      - name: Verification ladder
+        run: tests/check.sh --strict
