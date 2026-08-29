@@ -6,7 +6,7 @@ Loaded at the start of every Claude Code session. Read this fully; only open oth
 
 A 2D sandbox adventure game — spiritual successor to Terraria, blending technology and magic. Solo dev, single-player MVP, multiplayer post-MVP.
 
-Stack: Godot 4.x. C# for simulation/hot paths. GDScript for UI and glue. Aseprite for art. Tiled for prefabs. Targets PC (Windows, Linux) plus Steam Deck as day-one first-class.
+Stack: Godot 4.7. C# for simulation/hot paths. GDScript for UI and glue. Aseprite for art. Tiled for prefabs. Targets PC (Windows, Linux) plus Steam Deck as day-one first-class.
 
 Full context in `docs/GDD.md` — but do not open it unless the task genuinely needs the whole picture.
 
@@ -124,6 +124,26 @@ Open only what the task needs. Descriptions are the summary — use them to deci
 | Controls (keyboard/mouse/controller) | GDD §5.7 |
 | Rendering, tiles, sprites | GDD §9.4-9.5 |
 | Anything cross-cutting or unfamiliar | GDD.md |
+
+## Godot commands
+Project root: /run/media/system/Game_Drive_Two/gamedev/godot-projects/void
+Always pass --path explicitly; never rely on cwd. Godot 4.7.
+
+- Verify all:    tests/check.sh            (parse, lint, import, smoke, tests)
+- Verify some:   tests/check.sh 1 2        (rung numbers; exits with failing rung)
+- Parse check:   godot --headless --path <root> --check-only --script res://path/to.gd
+- Reimport:      godot --headless --path <root> --import
+- Run tests:     godot --headless --path <root> --script res://tests/run_tests.gd
+
+Prefer `tests/check.sh` over the raw commands — it greps engine output and
+truncates error dumps, which the raw commands do not.
+
+Rules:
+- A "Cannot go into subdir" error means the project root resolved wrong. Stop; do not retry.
+- --import can exit 0 while printing SCRIPT ERROR / ERROR: to stderr. Grep the output, don't trust $?.
+- Rung 4 (smoke) boots `run/main_scene` headless. `scenes/main_menu.tscn` is a
+  placeholder kept so this rung has something to boot; replace it, don't delete it.
+- `tests/test_example.gd` is a template. Delete it once real tests exist.
 
 ## Coding conventions
 
