@@ -16,6 +16,7 @@ Pre-production. Design phase complete; implementation not yet started.
 ├── README.md              # This file
 ├── project.godot          # Godot 4.7 project (.NET build required)
 ├── Void.csproj            # C# project (net8.0, Godot.NET.Sdk)
+├── Void.Tests/            # C# tests (xunit)
 ├── docs/                  # Design and technical specifications
 │   ├── GDD.md
 │   ├── implementation-roadmap.md
@@ -38,7 +39,7 @@ Pre-production. Design phase complete; implementation not yet started.
 ## Verifying
 
 `tests/check.sh` runs the ladder, cheapest rung first, stopping at the first
-failure: parse, lint, build, import, smoke, unit tests. Run a subset with rung numbers,
+failure: parse, lint, C# build, C# tests, import, smoke, GDScript tests. Run a subset with rung numbers,
 e.g. `tests/check.sh 1 2`.
 
 ## Where to start

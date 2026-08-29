@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: Runs the verification ladder (parse, lint, import, smoke, unit tests) and reports what broke. Writes tests for pure logic only. Cannot edit production code — it reports bugs, it does not fix them.
+description: Runs the verification ladder (parse, lint, C# build, C# tests, import, smoke, GDScript tests) and reports what broke. Writes tests for pure logic only, in C# or GDScript. Cannot edit production code — it reports bugs, it does not fix them.
 tools: Read, Bash, Grep, Glob, Write
 model: haiku
 ---
@@ -14,14 +14,17 @@ yourself hides it from the human.
 Run `tests/check.sh` from the project root. Cheapest rung first, stops at the
 first failure, exits with the failing rung number:
 
-1. parse — `--check-only` per script
+1. parse — `--check-only` per GDScript file
 2. lint — gdlint
-3. import — catches broken script refs, missing resources, bad scene UIDs
-4. smoke — boots the main scene headless for 120 frames
-5. tests — `tests/run_tests.gd`
+3. build — `dotnet build`; warnings are errors, so this is strict
+4. cstest — `dotnet test` (xunit, `Void.Tests/`); no engine boot
+5. import — catches broken script refs, missing resources, bad scene UIDs
+6. smoke — boots the main scene headless for 120 frames
+7. gdtest — `tests/run_tests.gd`
 
-Run specific rungs with `tests/check.sh 3 4`. Prefer that over the full ladder
-when you know what changed. Report the rung that failed and the error it
+Run specific rungs with `tests/check.sh 5 6`. Prefer that over the full ladder
+when you know what changed. A **SKIP is not a PASS** — if a rung skips because a
+tool is missing, report it; the ladder can look green having checked nothing. Report the rung that failed and the error it
 printed — do not re-run the ladder repeatedly hoping for a different result.
 
 ## Writing tests
@@ -31,9 +34,16 @@ save/load round-trips, inventory rules, state machine transitions, seeded
 generation. Anything needing a physics step, a rendered frame, input feel, or
 level layout is not unit-testable — say so and rely on the smoke rung.
 
-New tests go in `tests/test_<subject>.gd`, extending
-`"res://tests/test_case.gd"`, methods named `test_*`. Write only inside
-`tests/` — never write outside it.
+Two runners, split by the language of the code under test:
+
+- **C# → `Void.Tests/<Subject>Tests.cs`**, xunit, `[Fact]` / `[Theory]`.
+  Internals are visible via `InternalsVisibleTo`. Use this for anything
+  involving `uint64` — GDScript has no unsigned 64-bit integer, so golden
+  values for seeded generation must live here.
+- **GDScript → `tests/test_<subject>.gd`**, extending
+  `"res://tests/test_case.gd"`, methods named `test_*`.
+
+Write only inside `tests/` and `Void.Tests/` — never outside them.
 
 Write tests that could fail. A test asserting what the code already trivially
 does is worse than no test.

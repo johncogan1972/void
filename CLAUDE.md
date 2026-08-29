@@ -136,12 +136,13 @@ Open only what the task needs. Descriptions are the summary — use them to deci
 Project root: /run/media/system/Game_Drive_Two/gamedev/godot-projects/void
 Always pass --path explicitly; never rely on cwd. Godot 4.7.
 
-- Verify all:    tests/check.sh            (parse, lint, build, import, smoke, tests)
+- Verify all:    tests/check.sh            (parse, lint, build, cstest, import, smoke, gdtest)
 - Verify some:   tests/check.sh 1 2        (rung numbers; exits with failing rung)
 - Parse check:   godot --headless --path <root> --check-only --script res://path/to.gd
 - Reimport:      godot --headless --path <root> --import
 - Run tests:     godot --headless --path <root> --script res://tests/run_tests.gd
 - Build C#:      dotnet build <root>/Void.csproj
+- Test C#:       dotnet test <root>/Void.Tests/Void.Tests.csproj
 
 Prefer `tests/check.sh` over the raw commands — it greps engine output and
 truncates error dumps, which the raw commands do not.
@@ -149,10 +150,13 @@ truncates error dumps, which the raw commands do not.
 Rules:
 - A "Cannot go into subdir" error means the project root resolved wrong. Stop; do not retry.
 - --import can exit 0 while printing SCRIPT ERROR / ERROR: to stderr. Grep the output, don't trust $?.
-- Rung 5 (smoke) boots `run/main_scene` headless. `scenes/main_menu.tscn` is a
+- Rung 6 (smoke) boots `run/main_scene` headless. `scenes/main_menu.tscn` is a
   placeholder kept so this rung has something to boot; replace it, don't delete it.
 - `tests/test_example.gd` is a template. Delete it once real tests exist.
 - `src/BuildInfo.cs` proves the C# assembly loads. Delete it once real C# exists.
+- `Void.Tests/HarnessTests.cs` proves the xunit harness reaches the game assembly.
+  Delete it once real C# tests exist.
+- A SKIP is not a PASS. Rungs 2/3/4 skip when their tool is missing.
 - Godot must be the .NET build (`godot --version` shows `.mono`), or rung 3 output
   compiles but the engine cannot load it.
 
@@ -160,6 +164,8 @@ Rules:
 
 - **Language split:** C# for simulation/physics/combat/streaming, in `src/`. GDScript for UI
   and light glue, in `scripts/`. Assembly name and root namespace are both `Void`.
+- **Tests:** C# in `Void.Tests/` (xunit); GDScript in `tests/test_*.gd`. Anything using
+  `uint64` must be tested in C# — GDScript has no unsigned 64-bit integer.
 - **Data-driven:** items, biomes, recipes, loot tables, enemies, dialogue all in JSON. Registry pattern (see world-data-model-spec §7). New content = JSON entries, no code changes.
 - **Save format:** binary + zstd + XOR obfuscation. See save-format-spec.
 - **Godot conventions:** use TileMapLayer (Godot 4.3+), not TileMap. Consider Better Terrain plugin for deterministic auto-tile placement (see GDD §9.5).
