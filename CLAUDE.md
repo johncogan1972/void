@@ -56,6 +56,13 @@ Open the PR back into `dev`, referencing the ticket:
 
     gh pr create --base dev --title "VOID-007 Fix hotbar focus" --body "Closes #7"
 
+Commit at logical stopping points as the work proceeds, and push each commit.
+Do not batch a feature into one commit at the end, and do not leave commits
+sitting unpushed.
+
+When the feature is done, open the PR and **stop there — ask before merging.**
+Merging is the user's call, never automatic.
+
 **Closing keywords do not fire here.** GitHub only auto-closes on merge into the
 *default* branch, which is `main`. Every feature PR targets `dev`, so `Closes #7`
 records the link but never closes anything. Close the ticket by hand once the PR
