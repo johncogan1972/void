@@ -5,8 +5,8 @@ description: Run a Godot feature through the developer / ui-developer / verifier
 
 # Orchestrate a Godot feature
 
-Three agents, run in sequence: `developer` (gameplay `.gd`), `ui-developer`
-(UI and scenes), `verifier` (the ladder). You stay in the loop between stages.
+Three agents, run in sequence: `developer` (gameplay logic — C# in `src/`,
+GDScript in `scripts/`), `ui-developer` (UI and scenes), `verifier` (the ladder). You stay in the loop between stages.
 
 ## Step 0 — should this be orchestrated at all?
 
@@ -20,7 +20,7 @@ look thorough.
 
 ## Step 1 — free checks first
 
-Run `tests/check.sh 1 2 3`. Parse, lint and import cost no tokens and catch a
+Run `tests/check.sh 1 2 3 4`. Parse, lint, C# build and C# tests cost no tokens and catch a
 large share of what you'd otherwise pay an agent to find. If the tree is
 already broken, fix that before spawning anyone.
 
@@ -78,6 +78,9 @@ is the human's review surface.
 - `.godot/` is regenerated cache — never edited, never read.
 - `--import` and `godot` exit 0 while printing errors to stderr; trust grepped
   output, not `$?`. `tests/check.sh` already does this.
+- The ladder is 7 rungs: parse, lint, build, cstest, import, smoke, gdtest. A
+  SKIP is not a PASS.
+- Godot must be the .NET build; `godot --version` shows `.mono`.
 - "Cannot go into subdir" means the project root resolved wrong. Stop, do not
   retry.
 - `.tscn` files are read with grep, never Read whole, by anyone.
