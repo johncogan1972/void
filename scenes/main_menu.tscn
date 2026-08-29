@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
+[ext_resource type="Script" path="res://src/BuildInfo.cs" id="2_build"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -35,3 +36,6 @@ custom_minimum_size = Vector2(220, 56)
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Exit"
+
+[node name="BuildInfo" type="Node" parent="."]
+script = ExtResource("2_build")
