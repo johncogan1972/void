@@ -1,0 +1,64 @@
+[
+  // block_id is declared here and is stable forever: saved worlds store the raw
+  // number. Retire numbers, never reuse them. 0 is air by convention.
+  {
+    "id": "void:air",
+    "block_id": 0,
+    "display_name": "Air",
+    "sprite": "",
+    "hardness": 0,
+    "drop_item_id": null,
+    "collision": "none",
+    "blocks_light": false
+  },
+  {
+    "id": "void:dirt",
+    "block_id": 1,
+    "display_name": "Dirt",
+    "sprite": "res://assets/tiles/dirt.png",
+    "hardness": 10,
+    "drop_item_id": "void:dirt_block",
+    "collision": "solid",
+    "blocks_light": true
+  },
+  {
+    "id": "void:stone",
+    "block_id": 2,
+    "display_name": "Stone",
+    "sprite": "res://assets/tiles/stone.png",
+    "hardness": 30,
+    "drop_item_id": "void:stone_block",
+    "collision": "solid",
+    "blocks_light": true
+  },
+  {
+    "id": "void:grass",
+    "block_id": 3,
+    "display_name": "Grass",
+    "sprite": "res://assets/tiles/grass.png",
+    "hardness": 10,
+    "drop_item_id": "void:dirt_block",
+    "collision": "solid",
+    "blocks_light": true
+  },
+  {
+    "id": "void:sand",
+    "block_id": 4,
+    "display_name": "Sand",
+    "sprite": "res://assets/tiles/sand.png",
+    "hardness": 8,
+    "drop_item_id": "void:sand_block",
+    "collision": "solid",
+    "blocks_light": true
+  },
+  {
+    "id": "void:wood",
+    "block_id": 5,
+    "display_name": "Wood",
+    "sprite": "res://assets/tiles/wood.png",
+    "hardness": 20,
+    "drop_item_id": "void:wood_block",
+    "collision": "solid",
+    "blocks_light": true
+  }
+]
