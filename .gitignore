@@ -1,6 +1,13 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
-.godot/
 *.translation
 export_presets.cfg
+
+# Local docs archive
+docs/project-docs.zip
+
+# .NET build output
+bin/
+obj/
+*.user
