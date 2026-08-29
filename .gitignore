@@ -4,3 +4,6 @@
 .godot/
 *.translation
 export_presets.cfg
+
+# Local docs archive
+docs/project-docs.zip
