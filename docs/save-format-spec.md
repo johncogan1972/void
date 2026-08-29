@@ -1,6 +1,6 @@
 # Save Format — Feature Spec
 
-**Version:** 0.1
+**Version:** 0.2
 **Status:** Draft
 **Companion to:** GDD §10.3, world-data-model-spec.md
 
@@ -64,26 +64,32 @@ saves/
 All save files (except plain-text settings) share this outer envelope:
 
 ```
-[Envelope Header — 64 bytes]
-  magic              : uint32       # "MSAV" — quick sanity check
-  format_version     : uint16       # schema version of the payload
-  envelope_version   : uint16       # version of the envelope format itself
-  file_kind          : uint8        # 1=character, 2=campaign_manifest, 3=world_manifest, 4=chunk, 5=entity
-  flags              : uint8        # bit 0: obfuscated, bit 1: compressed, bit 2: debug (plaintext)
-  reserved           : uint16
-  payload_size       : uint32       # uncompressed size
-  compressed_size    : uint32       # size of body on disk
-  key_derivation:                   # inputs used to derive the XOR keystream
-    seed_input       : uint64
-    file_salt        : uint32
-    reserved         : bytes[8]
-  integrity_hash     : bytes[32]    # SHA-256 of payload (pre-obfuscation, pre-compression)
-  reserved           : bytes[12]
+[Envelope Header — 96 bytes]   little-endian throughout
+  off  size  field
+    0     4  magic              : uint32       # "MSAV" — quick sanity check
+    4     2  format_version     : uint16       # schema version of the payload
+    6     2  envelope_version   : uint16       # version of the envelope format itself
+    8     1  file_kind          : uint8        # 1=character, 2=campaign_manifest, 3=world_manifest, 4=chunk, 5=entity
+    9     1  flags              : uint8        # bit 0: obfuscated, bit 1: compressed, bit 2: debug (plaintext)
+   10     2  reserved           : uint16
+   12     4  payload_size       : uint32       # uncompressed size
+   16     4  compressed_size    : uint32       # size of body on disk
+   20     8  seed_input         : uint64       # key-derivation input (§7)
+   28     4  file_salt          : uint32       # key-derivation input, randomised per write (§7)
+   32     8  reserved           : bytes[8]
+   40    32  integrity_hash     : bytes[32]    # SHA-256 of payload (pre-obfuscation, pre-compression)
+   72    12  reserved           : bytes[12]
+   84    12  reserved           : bytes[12]    # padding to 96
+  ---------
+         96
 
 [Body]
   # Ship mode:  XOR(zstd(payload), keystream)
   # Debug mode: raw payload bytes (no compression, no XOR)
 ```
+
+All reserved bytes are written as zero and ignored on read, so a future field
+can claim a reserved slot without an `envelope_version` bump (§9).
 
 **Order of operations on save:**
 
@@ -129,7 +135,9 @@ Every payload is a versioned binary structure. Fields per file type come from `w
 
 ## 6. Compression
 
-- **Algorithm:** zstd (via a C# binding — recommend ZstdSharp or similar).
+- **Algorithm:** zstd, via the `ZstdSharp.Port` NuGet package (pure managed, no native
+  dependency, works both inside Godot and in the plain xunit harness). Standard zstd
+  frames, so save bodies remain readable by external zstd tooling.
 - **Compression level:** 3 (default balance of speed and ratio). Room to tune later.
 - **Compression is per-file**, not across files. Simpler to load individually.
 - **Dictionaries:** not used for MVP. If chunk save size becomes an issue, a chunk-specific zstd dictionary trained on representative data could reduce chunk size ~30–50%. Post-MVP optimisation.

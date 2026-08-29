@@ -16,4 +16,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Void.Tests" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
+  </ItemGroup>
 </Project>
