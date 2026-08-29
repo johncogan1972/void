@@ -1,0 +1,12 @@
+[
+  {
+    "id": "void:example_stone",
+    "display_name": "Example Stone",
+    "sort_order": 10
+  },
+  {
+    "id": "void:example_dirt",
+    "display_name": "Example Dirt",
+    "sort_order": 20
+  }
+]
