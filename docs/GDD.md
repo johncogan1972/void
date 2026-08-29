@@ -1,6 +1,6 @@
-# Game Design Document — [Untitled Project]
+# Game Design Document — Void
 
-**Version:** 0.34 (High-Level Draft)
+**Version:** 0.35 (High-Level Draft)
 **Status:** Pre-production
 **Author:** John
 

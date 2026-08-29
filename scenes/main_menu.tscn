@@ -26,7 +26,7 @@ theme_override_constants/separation = 32
 [node name="Title" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 64
-text = "Test project"
+text = "Void"
 horizontal_alignment = 1
 
 [node name="ExitButton" type="Button" parent="CenterContainer/VBoxContainer"]
