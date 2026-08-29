@@ -39,11 +39,13 @@ Always start a new feature from an up-to-date `dev`:
 
     git checkout dev
     git pull
-    git checkout -b VOID-<n>/<branch-name>
+    git checkout -b VOID-<nnn>/<description>
 
-Branch names are always `VOID-<ticket integer>/<branch-name>`, e.g.
-`VOID-001/some-new-feature`. Never start a feature from whatever branch
-happens to be checked out, and never commit straight to `main`.
+Branch names are always `VOID-<nnn>/<description>`, using the same
+zero-padded three-digit number as the ticket ID — issue #1 is `VOID-001`, so
+its branch is `VOID-001/prep-project`. The description is short and
+kebab-case. Never start a feature from whatever branch happens to be checked
+out, and never commit straight to `main`.
 
 Prefer letting `gh` name and link the branch — it derives the base and
 attaches the branch to the issue:
