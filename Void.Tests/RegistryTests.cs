@@ -15,12 +15,20 @@ public class RegistryTests : IDisposable
 {
     private readonly string _root;
 
+    /// <summary>
+    /// Creates a throwaway content directory per test, so cases cannot see each
+    /// other's JSON files.
+    /// </summary>
     public RegistryTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "void-registry-tests-" + Path.GetRandomFileName());
         Directory.CreateDirectory(_root);
     }
 
+    /// <summary>
+    /// Removes the temp directory. Failures here are not worth failing a test over,
+    /// but leftovers would accumulate across runs.
+    /// </summary>
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -31,6 +39,9 @@ public class RegistryTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Drops a JSON document into the temp content root, creating subdirectories.
+    /// </summary>
     private void WriteFile(string name, string json)
     {
         string path = Path.Combine(_root, name);
@@ -43,12 +54,20 @@ public class RegistryTests : IDisposable
         File.WriteAllText(path, json);
     }
 
+    /// <summary>
+    /// Loads the whole temp root through the filesystem source — never the Godot
+    /// source, which needs an initialised engine this suite does not have.
+    /// </summary>
     private Registry<SampleDefinition> Load() =>
         RegistryLoader.Load<SampleDefinition>(new DirectoryContentSource(_root));
 
     private static string Entry(string id, string displayName, int sortOrder) =>
         $"{{ \"id\": \"{id}\", \"display_name\": \"{displayName}\", \"sort_order\": {sortOrder} }}";
 
+    /// <summary>
+    /// The happy path: a folder of JSON becomes a registry addressable by id, with
+    /// non-string fields intact.
+    /// </summary>
     [Fact]
     public void LoadsFolderOfJsonAndResolvesIds()
     {
@@ -63,6 +82,10 @@ public class RegistryTests : IDisposable
         Assert.True(registry.Contains("void:dirt"));
     }
 
+    /// <summary>
+    /// A document may hold one object or an array of them, so content authors can
+    /// group or split files however reads best. Both shapes must load identically.
+    /// </summary>
     [Fact]
     public void ArrayDocumentYieldsMultipleEntries()
     {
@@ -73,6 +96,13 @@ public class RegistryTests : IDisposable
         Assert.Equal(new[] { "void:a", "void:b" }, registry.Ids);
     }
 
+    /// <summary>
+    /// The determinism guarantee, and the reason this whole type is sorted.
+    ///
+    /// Registry order feeds world generation, so it must be identical on every
+    /// machine. Sorting is ordinal, not culture-aware: a Turkish locale must not
+    /// reorder the world. If this goes red, worlds stop being reproducible.
+    /// </summary>
     [Fact]
     public void IterationIsOrdinalSortedByIdRegardlessOfFileOrder()
     {
@@ -88,6 +118,10 @@ public class RegistryTests : IDisposable
         Assert.Equal(new[] { "void:Beta", "void:alpha", "void:zeta" }, ids);
     }
 
+    /// <summary>
+    /// A built registry is immutable. Content that could change after boot would
+    /// let two players with the same seed generate different worlds.
+    /// </summary>
     [Fact]
     public void RegistryIsFrozenAfterBuild()
     {
@@ -102,6 +136,11 @@ public class RegistryTests : IDisposable
         Assert.False(registry.Contains("void:b"));
     }
 
+    /// <summary>
+    /// Duplicate ids are fatal and name both files. Last-writer-wins would make the
+    /// world depend on filesystem enumeration order, and the error has to point at
+    /// both culprits or the author cannot find the collision.
+    /// </summary>
     [Fact]
     public void DuplicateIdNamesIdAndBothFiles()
     {
@@ -115,6 +154,10 @@ public class RegistryTests : IDisposable
         Assert.Contains("b_second.json", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A missing id is a bug in data or code, so lookup fails loudly with the id in
+    /// the message rather than returning null for someone to trip over later.
+    /// </summary>
     [Fact]
     public void UnknownIdLookupThrowsNamingTheId()
     {
@@ -126,6 +169,9 @@ public class RegistryTests : IDisposable
         Assert.Contains("void:missing", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The probing form, for the callers that treat absence as normal.
+    /// </summary>
     [Fact]
     public void TryGetProbesWithoutThrowing()
     {
@@ -137,6 +183,10 @@ public class RegistryTests : IDisposable
         Assert.False(registry.TryGet("void:missing", out _));
     }
 
+    /// <summary>
+    /// A bad JSON drop must be diagnosable without a debugger: the message names the
+    /// file and the parse problem.
+    /// </summary>
     [Fact]
     public void MalformedJsonNamesFileAndProblem()
     {
@@ -149,6 +199,10 @@ public class RegistryTests : IDisposable
         Assert.Contains("Malformed JSON", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A root that is neither object nor array is rejected by name, rather than
+    /// silently contributing nothing.
+    /// </summary>
     [Fact]
     public void NonObjectRootNamesFile()
     {
@@ -160,6 +214,10 @@ public class RegistryTests : IDisposable
         Assert.Contains("object or array", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Every entry needs a usable id. Blank, whitespace and absent all fail the same
+    /// way, because an entry with no id cannot be addressed or sorted.
+    /// </summary>
     [Theory]
     [InlineData("{ \"display_name\": \"No Id\" }")]
     [InlineData("{ \"id\": \"\", \"display_name\": \"Empty\" }")]
@@ -174,6 +232,10 @@ public class RegistryTests : IDisposable
         Assert.Contains("'id'", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A missing content directory is fatal, not an empty registry. Silently booting
+    /// with no content would surface much later as an unrelated crash.
+    /// </summary>
     [Fact]
     public void MissingDirectoryFailsLoudly()
     {
@@ -185,6 +247,10 @@ public class RegistryTests : IDisposable
         Assert.Contains("does-not-exist", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An existing but empty directory is legitimate — the failure above is about the
+    /// directory being absent, not unpopulated.
+    /// </summary>
     [Fact]
     public void EmptyDirectoryProducesEmptyRegistry()
     {
@@ -192,6 +258,10 @@ public class RegistryTests : IDisposable
         Assert.Empty(Registry<SampleDefinition>.Empty);
     }
 
+    /// <summary>
+    /// Several sources merge into one builder, which is how base content plus later
+    /// mods or portal-world packs will share a registry.
+    /// </summary>
     [Fact]
     public void MultipleSourcesCanFeedOneRegistry()
     {

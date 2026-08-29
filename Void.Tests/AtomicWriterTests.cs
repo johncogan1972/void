@@ -15,12 +15,19 @@ public sealed class AtomicWriterTests : IDisposable
 {
     private readonly string _root;
 
+    /// <summary>
+    /// Creates a throwaway save root per test. Nothing here writes to a real save
+    /// location.
+    /// </summary>
     public AtomicWriterTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "void-save-tests-" + Path.GetRandomFileName());
         Directory.CreateDirectory(_root);
     }
 
+    /// <summary>
+    /// Removes the temp save root; leftovers in the OS temp dir are harmless.
+    /// </summary>
     public void Dispose()
     {
         try
@@ -35,6 +42,10 @@ public sealed class AtomicWriterTests : IDisposable
 
     private string Path_(params string[] parts) => Path.Combine(_root, Path.Combine(parts));
 
+    /// <summary>
+    /// The happy path: the save directory is created on demand, bytes land intact,
+    /// and the temp file is gone afterwards.
+    /// </summary>
     [Fact]
     public void CreatesMissingDirectoriesAndWritesBytes()
     {
@@ -48,6 +59,11 @@ public sealed class AtomicWriterTests : IDisposable
         Assert.False(File.Exists(target + AtomicWriter.TempSuffix));
     }
 
+    /// <summary>
+    /// The whole reason atomic writing exists: a crash mid-save must not cost the
+    /// player the save they already had. The previous file survives byte-identical
+    /// and no temp file is left to confuse the next load.
+    /// </summary>
     [Fact]
     public void FailureMidWriteLeavesPreviousFileIntactAndNoTempBehind()
     {
@@ -67,6 +83,11 @@ public sealed class AtomicWriterTests : IDisposable
         Assert.False(File.Exists(target + AtomicWriter.TempSuffix));
     }
 
+    /// <summary>
+    /// A reader looking at the target at any moment sees a complete file — either the
+    /// old version or the new one, never a half-written mix. This is what makes the
+    /// save survive a Steam Deck suspend landing mid-write.
+    /// </summary>
     [Fact]
     public void TargetIsNeverObservedPartial()
     {
@@ -89,6 +110,10 @@ public sealed class AtomicWriterTests : IDisposable
         Assert.Equal(second, File.ReadAllBytes(target));
     }
 
+    /// <summary>
+    /// Cleanup removes debris from a previous crashed run but must not touch a temp
+    /// file a concurrent write is still using, nor any real save.
+    /// </summary>
     [Fact]
     public void StaleTempFilesAreCleanedAndFreshOnesSpared()
     {
@@ -111,12 +136,20 @@ public sealed class AtomicWriterTests : IDisposable
         Assert.True(File.Exists(keeper));
     }
 
+    /// <summary>
+    /// Cleanup on a save directory that does not exist yet is not an error — it is
+    /// the normal state on first launch.
+    /// </summary>
     [Fact]
     public void CleanupOnMissingRootIsANoOp()
     {
         Assert.Equal(0, AtomicWriter.CleanStaleTempFiles(Path_("nope"), TimeSpan.Zero));
     }
 
+    /// <summary>
+    /// End to end through the filesystem: payload, envelope metadata and integrity
+    /// flag all survive a real write and read.
+    /// </summary>
     [Fact]
     public void SaveAndLoadRoundTripThroughDisk()
     {
@@ -132,6 +165,9 @@ public sealed class AtomicWriterTests : IDisposable
         Assert.Equal(SaveFileKind.Character, result.Envelope.FileKind);
     }
 
+    /// <summary>
+    /// Repeated saves to the same path stay loadable, which is the autosave path.
+    /// </summary>
     [Fact]
     public void OverwritingAnExistingSaveKeepsItLoadable()
     {

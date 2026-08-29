@@ -35,6 +35,12 @@ public class ReferenceSeedTests
     private const string GoldenHash =
         "1EC5B896BD9201270E657CBC078AD177352DB9D9639F1210C5F0666055F12765";
 
+    /// <summary>
+    /// The CI tripwire itself: the frozen seed still hashes to the frozen golden.
+    ///
+    /// A failure means generated output changed. Read the class remarks before
+    /// touching GoldenHash — never update it to turn a build green.
+    /// </summary>
     [Fact]
     public void ReferencePayloadHashMatchesGolden()
     {
@@ -100,12 +106,24 @@ public class ReferenceSeedTests
     {
         private readonly IReferencePayloadSource _inner;
 
+        /// <summary>
+        /// Wraps a source, changing only its reported identity.
+        /// </summary>
         public RenamedSource(IReferencePayloadSource inner) => _inner = inner;
 
+        /// <summary>
+        /// A deliberately different id; everything else is passed through.
+        /// </summary>
         public string Id => _inner.Id + "-renamed";
 
+        /// <summary>
+        /// Unchanged, so identity is the only variable in the comparison.
+        /// </summary>
         public int Version => _inner.Version;
 
+        /// <summary>
+        /// Writes exactly the same bytes as the wrapped source.
+        /// </summary>
         public void Write(PayloadWriter writer, ulong seed) => _inner.Write(writer, seed);
     }
 }

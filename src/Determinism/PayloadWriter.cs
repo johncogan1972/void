@@ -19,6 +19,11 @@ public sealed class PayloadWriter
     private readonly Stream _stream;
     private readonly byte[] _scratch = new byte[8];
 
+    /// <summary>
+    /// Wraps a destination stream. The writer never seeks and never buffers, so
+    /// bytes land in call order; the caller owns the stream and its disposal.
+    /// </summary>
+    /// <param name="stream">Destination. Must be writable.</param>
     public PayloadWriter(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);

@@ -13,6 +13,9 @@ public class RngTests
 {
     private const ulong TestSeed = 0x0123456789ABCDEFUL;
 
+    /// <summary>
+    /// Draws <paramref name="count"/> raw values, advancing the generator.
+    /// </summary>
     private static ulong[] Take(Rng rng, int count)
     {
         ulong[] result = new ulong[count];
@@ -24,6 +27,9 @@ public class RngTests
         return result;
     }
 
+    /// <summary>
+    /// The foundation of world reproducibility: one seed, one sequence, always.
+    /// </summary>
     [Fact]
     public void SameSeedProducesIdenticalSequence()
     {
@@ -33,6 +39,10 @@ public class RngTests
         Assert.Equal(a, b);
     }
 
+    /// <summary>
+    /// Neighbouring and pathological seeds must not collapse onto the same stream,
+    /// or distinct worlds would generate identically.
+    /// </summary>
     [Theory]
     [InlineData(0UL, 1UL)]
     [InlineData(1UL, 2UL)]
@@ -46,6 +56,10 @@ public class RngTests
         Assert.NotEqual(a, b);
     }
 
+    /// <summary>
+    /// xoshiro cannot recover from an all-zero state — it emits zeros forever. Seed
+    /// expansion has to make that state unreachable for every seed, including 0.
+    /// </summary>
     [Fact]
     public void AllZeroStateIsAvoided()
     {
@@ -58,6 +72,13 @@ public class RngTests
 
     // --- sub-streams ---------------------------------------------------------
 
+    /// <summary>
+    /// A named sub-stream depends only on parent seed and key.
+    ///
+    /// Generation phases are derived in whatever order the pipeline runs, so if
+    /// creation order leaked into the stream, reordering two phases would silently
+    /// change every world.
+    /// </summary>
     [Fact]
     public void SubStreamIsIndependentOfCreationOrder()
     {
@@ -74,6 +95,10 @@ public class RngTests
         Assert.Equal(Take(terrainFirst, 32), Take(terrainLast, 32));
     }
 
+    /// <summary>
+    /// Sibling streams cannot influence each other. Terrain drawing more or fewer
+    /// values must never shift what caves produces.
+    /// </summary>
     [Fact]
     public void SubStreamIsIndependentOfDrawOrderOfSiblings()
     {
@@ -93,6 +118,10 @@ public class RngTests
         Assert.Equal(pristine, afterSiblingDraws);
     }
 
+    /// <summary>
+    /// Deriving is a pure read of the parent seed. If it consumed parent state,
+    /// adding a new generation phase would change the output of every existing one.
+    /// </summary>
     [Fact]
     public void DerivingDoesNotAdvanceTheParent()
     {
@@ -103,6 +132,9 @@ public class RngTests
         Assert.Equal(Take(new Rng(TestSeed), 16), Take(withDerives, 16));
     }
 
+    /// <summary>
+    /// Distinct keys give distinct streams, empty key included.
+    /// </summary>
     [Fact]
     public void DifferentKeysProduceDifferentSubStreams()
     {
@@ -112,6 +144,10 @@ public class RngTests
         Assert.NotEqual(Take(root.Derive(""), 16), Take(root.Derive("terrain"), 16));
     }
 
+    /// <summary>
+    /// The key alone does not determine the stream — the world seed still has to
+    /// reach it, or every world would share terrain.
+    /// </summary>
     [Fact]
     public void SameKeyUnderDifferentSeedsDiffers()
     {
@@ -120,6 +156,10 @@ public class RngTests
             Take(new Rng(2UL).Derive("terrain"), 16));
     }
 
+    /// <summary>
+    /// Derivation composes: a stream derived from a derived stream is reproducible
+    /// to any depth, which is how per-chunk streams hang off per-phase ones.
+    /// </summary>
     [Fact]
     public void NestedDerivationIsStable()
     {
@@ -129,6 +169,9 @@ public class RngTests
         Assert.Equal(a, b);
     }
 
+    /// <summary>
+    /// A null key is a programming error, not an unnamed stream.
+    /// </summary>
     [Fact]
     public void DeriveRejectsNullKey()
     {
@@ -138,6 +181,10 @@ public class RngTests
 
     // --- range draws ---------------------------------------------------------
 
+    /// <summary>
+    /// Range is half-open [min, max): both endpoints of the reachable set occur, and
+    /// max itself never does.
+    /// </summary>
     [Fact]
     public void NextIntStaysInHalfOpenRange()
     {
@@ -157,6 +204,10 @@ public class RngTests
         Assert.True(sawMaxMinusOne);
     }
 
+    /// <summary>
+    /// A one-value range is legal and constant — the degenerate case callers hit at
+    /// the edges of a table without special-casing it.
+    /// </summary>
     [Fact]
     public void NextIntSingleValueRangeIsConstant()
     {
@@ -167,6 +218,10 @@ public class RngTests
         }
     }
 
+    /// <summary>
+    /// The full int span exercises the width where a naive (max - min) computation
+    /// overflows.
+    /// </summary>
     [Fact]
     public void NextIntHandlesFullIntSpanWithoutOverflow()
     {
@@ -178,6 +233,10 @@ public class RngTests
         }
     }
 
+    /// <summary>
+    /// An empty or inverted range has no valid answer, so it throws rather than
+    /// inventing one.
+    /// </summary>
     [Theory]
     [InlineData(0, 0)]
     [InlineData(5, 5)]
@@ -188,6 +247,9 @@ public class RngTests
         Assert.Throws<ArgumentOutOfRangeException>(() => rng.NextInt(min, max));
     }
 
+    /// <summary>
+    /// Range reduction is part of the deterministic contract, not just the raw draw.
+    /// </summary>
     [Fact]
     public void NextIntIsReproducible()
     {
@@ -199,6 +261,13 @@ public class RngTests
         }
     }
 
+    /// <summary>
+    /// Rejects modulo bias.
+    ///
+    /// Ranges that do not divide 2^64 evenly are where a naive reduction skews
+    /// toward low values — which would quietly bias every ore roll and spawn table
+    /// in the game rather than failing outright.
+    /// </summary>
     [Fact]
     public void NextIntIsUnbiasedAcrossBuckets()
     {
@@ -227,6 +296,10 @@ public class RngTests
 
     // --- doubles and bools ---------------------------------------------------
 
+    /// <summary>
+    /// Doubles stay in [0, 1) and average near the middle. Noise functions assume
+    /// the upper bound is exclusive.
+    /// </summary>
     [Fact]
     public void NextDoubleStaysInUnitInterval()
     {
@@ -244,6 +317,9 @@ public class RngTests
         Assert.InRange(sum / Draws, 0.49, 0.51);
     }
 
+    /// <summary>
+    /// Coin flips are fair and repeatable.
+    /// </summary>
     [Fact]
     public void NextBoolIsBalancedAndReproducible()
     {
@@ -267,8 +343,15 @@ public class RngTests
 
     // --- weighted choice -----------------------------------------------------
 
+    /// <summary>
+    /// A weighted candidate, used to prove ordering does not affect selection.
+    /// </summary>
     private sealed record Entry(string Id, double Weight);
 
+    /// <summary>
+    /// Weighted selection sorts its candidates rather than trusting the order it
+    /// received them in.
+    /// </summary>
     [Fact]
     public void WeightedChoiceIgnoresInsertionOrder()
     {
@@ -292,6 +375,11 @@ public class RngTests
         }
     }
 
+    /// <summary>
+    /// The determinism rule in practice: a Dictionary enumerates in hash order,
+    /// which is not guaranteed stable across runtimes. Selection must sort, or two
+    /// players with the same seed could roll different loot.
+    /// </summary>
     [Fact]
     public void WeightedChoiceIgnoresDictionaryHashOrder()
     {
@@ -317,6 +405,10 @@ public class RngTests
         }
     }
 
+    /// <summary>
+    /// Weights actually govern the distribution — order-independence is not bought
+    /// by ignoring them.
+    /// </summary>
     [Fact]
     public void WeightedChoiceRespectsWeights()
     {
@@ -346,6 +438,9 @@ public class RngTests
         Assert.InRange(counts["legendary"] / (double)Draws, 0.005, 0.015);
     }
 
+    /// <summary>
+    /// A zero weight means impossible, not rare. Disabled content must never drop.
+    /// </summary>
     [Fact]
     public void WeightedChoiceNeverPicksZeroWeightEntries()
     {
@@ -363,6 +458,10 @@ public class RngTests
         }
     }
 
+    /// <summary>
+    /// Empty tables, negative weights, NaN and all-zero totals are authoring errors
+    /// and fail loudly rather than silently picking something.
+    /// </summary>
     [Fact]
     public void WeightedChoiceRejectsBadInput()
     {

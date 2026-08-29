@@ -13,6 +13,9 @@ namespace Void.Tests;
 /// </summary>
 public sealed class SaveEnvelopeTests
 {
+    /// <summary>
+    /// Builds a repeatable pseudo-payload of a given length.
+    /// </summary>
     private static byte[] Payload(int length, byte seed = 0)
     {
         byte[] bytes = new byte[length];
@@ -24,6 +27,10 @@ public sealed class SaveEnvelopeTests
         return bytes;
     }
 
+    /// <summary>
+    /// The core guarantee: whatever goes in comes out unchanged, at every size
+    /// including empty and larger-than-one-buffer.
+    /// </summary>
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
@@ -43,6 +50,10 @@ public sealed class SaveEnvelopeTests
         Assert.Equal((uint)length, result.Envelope.PayloadSize);
     }
 
+    /// <summary>
+    /// Compression is really applied, not just flagged. Chunk data is the bulk of a
+    /// save, so a silently disabled codec would cost players disk, not correctness.
+    /// </summary>
     [Fact]
     public void CompressibleDataActuallyShrinks()
     {
@@ -54,6 +65,10 @@ public sealed class SaveEnvelopeTests
         Assert.Equal(payload, SaveFile.Decode(file, "compress").Payload);
     }
 
+    /// <summary>
+    /// The header is a fixed 96 bytes (save-format-spec §4). Every offset below
+    /// depends on this, as does any future migration reading an old file.
+    /// </summary>
     [Fact]
     public void HeaderIsExactlyNinetySixBytes()
     {
@@ -63,6 +78,13 @@ public sealed class SaveEnvelopeTests
         Assert.Equal(SaveEnvelope.HeaderSize, file.Length); // empty debug body
     }
 
+    /// <summary>
+    /// Pins every field to its documented byte offset, little-endian.
+    ///
+    /// This is the on-disk contract with saves that already exist on players’
+    /// machines. A field that moved would make old saves unreadable, so the layout
+    /// is asserted against the spec table rather than against the writer.
+    /// </summary>
     [Fact]
     public void EveryFieldLandsAtItsSpecOffset()
     {
@@ -110,6 +132,10 @@ public sealed class SaveEnvelopeTests
         }
     }
 
+    /// <summary>
+    /// The first four bytes read MSAV in a hex editor, which is what makes a save
+    /// identifiable when someone sends you a corrupt file.
+    /// </summary>
     [Fact]
     public void MagicBytesOnDiskSpellMsav()
     {
@@ -122,6 +148,10 @@ public sealed class SaveEnvelopeTests
         Assert.Equal("MSAV", Encoding.ASCII.GetString(file, 0, 4));
     }
 
+    /// <summary>
+    /// Per-file salt makes two saves of identical content differ on disk, while both
+    /// still decode to the same payload with an unchanged content hash.
+    /// </summary>
     [Fact]
     public void SaltRandomisationChangesBytesButNotContent()
     {
@@ -141,6 +171,11 @@ public sealed class SaveEnvelopeTests
         Assert.Equal(payload, SaveFile.Decode(b, "b").Payload);
     }
 
+    /// <summary>
+    /// Tampering is detected and reported — but the decoded payload is still handed
+    /// back on the exception, so a recovery path can salvage a damaged save instead
+    /// of the player losing it entirely.
+    /// </summary>
     [Fact]
     public void TamperedBodyIsDetectedAndPayloadStillReachable()
     {
@@ -159,6 +194,9 @@ public sealed class SaveEnvelopeTests
         Assert.NotEqual(payload, result.Payload);
     }
 
+    /// <summary>
+    /// A file that is not a save is rejected by name, not parsed as garbage.
+    /// </summary>
     [Fact]
     public void WrongMagicIsRejected()
     {
@@ -170,6 +208,10 @@ public sealed class SaveEnvelopeTests
         Assert.Contains("magic", thrown.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// A future or zero envelope version is refused rather than misread. This is the
+    /// hook the migration path will take over (save-format-spec §14).
+    /// </summary>
     [Fact]
     public void UnknownEnvelopeVersionIsRejected()
     {
@@ -184,12 +226,19 @@ public sealed class SaveEnvelopeTests
         Assert.Throws<SaveFormatException>(() => SaveFile.Decode(file, "zeroversion"));
     }
 
+    /// <summary>
+    /// A file too short to hold a header fails cleanly instead of reading past the end.
+    /// </summary>
     [Fact]
     public void TruncatedHeaderIsRejected()
     {
         Assert.Throws<SaveFormatException>(() => SaveEnvelope.Read(new byte[95], "short"));
     }
 
+    /// <summary>
+    /// Debug saves skip obfuscation and compression so the bytes can be inspected
+    /// directly — the payload appears verbatim after the header.
+    /// </summary>
     [Fact]
     public void DebugModeStoresPayloadInPlaintext()
     {
@@ -211,6 +260,10 @@ public sealed class SaveEnvelopeTests
         Assert.Equal(payload, result.Payload);
     }
 
+    /// <summary>
+    /// A body shorter than the header claims is a truncated file — caught rather
+    /// than decoded into a plausible-looking partial world.
+    /// </summary>
     [Fact]
     public void BodyLengthMismatchIsRejected()
     {
@@ -220,6 +273,11 @@ public sealed class SaveEnvelopeTests
         Assert.Throws<SaveFormatException>(() => SaveFile.Decode(truncated, "truncbody"));
     }
 
+    /// <summary>
+    /// The keystream is a pure function of salt, seed and format version, and is a
+    /// true stream: a short fill is a prefix of a longer one, so a save can be
+    /// decoded in chunks.
+    /// </summary>
     [Fact]
     public void KeystreamIsDeterministicForFixedInputs()
     {
@@ -247,6 +305,9 @@ public sealed class SaveEnvelopeTests
         Assert.Equal(first.AsSpan(0, 13).ToArray(), shorter);
     }
 
+    /// <summary>
+    /// An all-zero keystream would XOR to plaintext and obfuscate nothing.
+    /// </summary>
     [Fact]
     public void KeystreamIsNotAllZeroes()
     {
@@ -255,6 +316,10 @@ public sealed class SaveEnvelopeTests
         Assert.Contains(bytes, b => b != 0);
     }
 
+    /// <summary>
+    /// The degenerate all-zero state falls back to the documented SplitMix64
+    /// expansion rather than emitting zeros forever.
+    /// </summary>
     [Fact]
     public void AllZeroStateFallsBackToNonZeroSequence()
     {
@@ -266,12 +331,19 @@ public sealed class SaveEnvelopeTests
         Assert.Equal(new Xoshiro256PlusPlus(0UL).Next(), first);
     }
 
+    /// <summary>
+    /// The raw-state constructor needs exactly 32 bytes; anything else is a caller bug.
+    /// </summary>
     [Fact]
     public void StateSpanConstructorRejectsWrongLength()
     {
         Assert.Throws<ArgumentException>(() => new Xoshiro256PlusPlus(new byte[31]));
     }
 
+    /// <summary>
+    /// Guard against the span constructor perturbing the seeded path — that path
+    /// produces the golden vectors and world generation itself.
+    /// </summary>
     [Fact]
     public void SingleSeedConstructorStillMatchesVoid005Behaviour()
     {

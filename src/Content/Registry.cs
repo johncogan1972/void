@@ -38,6 +38,14 @@ public sealed class Registry<T> : IReadOnlyCollection<T>
     /// <summary>An empty registry of this type.</summary>
     public static Registry<T> Empty { get; } = new Registry<T>(new List<T>());
 
+    /// <summary>
+    /// Freezes <paramref name="entries"/> into sorted, immutable form. Internal by
+    /// design: registries are produced through <see cref="RegistryBuilder{T}"/>, so
+    /// the duplicate-id checks cannot be bypassed on the normal path.
+    ///
+    /// Sorting is ordinal on the string id and happens here, once — iteration order
+    /// feeds world generation, so it must not depend on insertion or file order.
+    /// </summary>
     internal Registry(IReadOnlyList<T> entries)
     {
         T[] sorted = new T[entries.Count];

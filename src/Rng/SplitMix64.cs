@@ -16,6 +16,11 @@ internal struct SplitMix64
 
     private ulong _state;
 
+    /// <summary>
+    /// Seeds the generator. Every seed is valid, including zero — that is the
+    /// reason this is used to expand seeds for xoshiro, which cannot take an
+    /// all-zero state.
+    /// </summary>
     internal SplitMix64(ulong seed)
     {
         _state = seed;
