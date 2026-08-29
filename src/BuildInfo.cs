@@ -10,6 +10,10 @@ namespace Void;
 /// </summary>
 public partial class BuildInfo : Node
 {
+    /// <summary>
+    /// Prints the loaded assembly name so the smoke rung has observable proof the
+    /// C# side is alive. Runs on scene entry, before the first frame.
+    /// </summary>
     public override void _Ready()
     {
         GD.Print($"C# assembly loaded: {typeof(BuildInfo).Assembly.GetName().Name}");

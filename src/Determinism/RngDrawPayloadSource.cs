@@ -41,10 +41,27 @@ public sealed class RngDrawPayloadSource : IReferencePayloadSource
         ["legendary"] = 0.5,
     };
 
+    /// <summary>
+    /// Stable identifier recorded in the payload header. Changing this string
+    /// changes the hash, so treat it as part of the format, not a label.
+    /// </summary>
     public string Id => "rng-draws";
 
+    /// <summary>
+    /// Payload schema version. Bump only alongside a deliberate golden-hash
+    /// regeneration — see the determinism rules in CLAUDE.md.
+    /// </summary>
     public int Version => 1;
 
+    /// <summary>
+    /// Writes the fixed draw sequence the golden hash is taken over.
+    ///
+    /// Every line here is load-bearing: reordering a draw, changing a count, or
+    /// touching the weight table changes the hash and therefore claims that every
+    /// existing world generates differently. Do not edit to fix a red build.
+    /// </summary>
+    /// <param name="writer">Destination for the canonical byte layout.</param>
+    /// <param name="seed">World seed the draws derive from.</param>
     public void Write(PayloadWriter writer, ulong seed)
     {
         Rng root = new Rng(seed);

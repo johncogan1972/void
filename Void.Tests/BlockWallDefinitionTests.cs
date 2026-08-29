@@ -17,12 +17,18 @@ public class BlockWallDefinitionTests : IDisposable
 {
     private readonly string _root;
 
+    /// <summary>
+    /// Creates a throwaway content directory per test.
+    /// </summary>
     public BlockWallDefinitionTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "void-blockwall-tests-" + Path.GetRandomFileName());
         Directory.CreateDirectory(_root);
     }
 
+    /// <summary>
+    /// Removes the temp directory.
+    /// </summary>
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -33,6 +39,9 @@ public class BlockWallDefinitionTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Drops a JSON document into the temp content root.
+    /// </summary>
     private void WriteFile(string name, string json)
     {
         string path = Path.Combine(_root, name);
@@ -45,9 +54,15 @@ public class BlockWallDefinitionTests : IDisposable
         File.WriteAllText(path, json);
     }
 
+    /// <summary>
+    /// Loads the temp root as blocks, through the engine-free filesystem source.
+    /// </summary>
     private Registry<BlockDefinition> LoadBlocks() =>
         RegistryLoader.Load<BlockDefinition>(new DirectoryContentSource(_root));
 
+    /// <summary>
+    /// Loads the temp root as walls, through the engine-free filesystem source.
+    /// </summary>
     private Registry<WallDefinition> LoadWalls() =>
         RegistryLoader.Load<WallDefinition>(new DirectoryContentSource(_root));
 
@@ -99,6 +114,10 @@ public class BlockWallDefinitionTests : IDisposable
         }
         """;
 
+    /// <summary>
+    /// Every declared field survives the load, including the enum and the nullable
+    /// drop. A field that silently failed to bind would ship as a default value.
+    /// </summary>
     [Fact]
     public void BlocksLoadFromJsonWithEveryFieldPopulated()
     {
@@ -120,6 +139,13 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.False(platform.BlocksLight);
     }
 
+    /// <summary>
+    /// Air is a real registry entry, not an absence (world-data-model-spec §2).
+    ///
+    /// A tile holding air still carries wall, liquid and flags — that is how an
+    /// interior room exists at all. If air were modelled as "no entry", every
+    /// walled-in empty tile would lose its wall.
+    /// </summary>
     [Fact]
     public void AirIsARealEntryAtNumericZero()
     {
@@ -134,6 +160,10 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.Null(air.DropItemId);
     }
 
+    /// <summary>
+    /// Same rule for wall 0: "no wall" is an entry that can be looked up, which NPC
+    /// housing validity depends on being able to ask about (GDD §5.5).
+    /// </summary>
     [Fact]
     public void NoWallIsARealEntryAtNumericZero()
     {
@@ -151,6 +181,13 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.Equal("Stone Wall", registry.GetByNumericId(2).DisplayName);
     }
 
+    /// <summary>
+    /// The numeric id is declared in the JSON and never derived.
+    ///
+    /// Saved worlds store the raw number, so an id that shifted with load order or
+    /// array position would silently reinterpret every existing world. Declared out
+    /// of order across files that sort the other way, so any such reliance fails.
+    /// </summary>
     [Fact]
     public void NumericIdComesFromJsonNotLoadOrder()
     {
@@ -180,6 +217,10 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.Equal(new[] { "void:a", "void:b", "void:c", "void:d" }, registry.Ids);
     }
 
+    /// <summary>
+    /// Colliding numeric ids are fatal and name both files. Last-writer-wins would
+    /// make which block you get depend on filesystem enumeration order.
+    /// </summary>
     [Fact]
     public void DuplicateNumericIdNamesNumberAndBothFiles()
     {
@@ -193,6 +234,10 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.Contains("b_second.json", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The string-id check still applies to numeric definitions: distinct numbers do
+    /// not excuse a duplicate id.
+    /// </summary>
     [Fact]
     public void DuplicateStringIdWithDistinctNumericsStillNamesIdAndBothFiles()
     {
@@ -206,6 +251,10 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.Contains("b_second.json", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The numeric check lives in the shared builder, so walls inherit it rather
+    /// than reimplementing it.
+    /// </summary>
     [Fact]
     public void DuplicateWallNumericIdIsAlsoFatal()
     {
@@ -217,6 +266,10 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.Contains("4", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An unmapped number is a bug in data or code — it throws with the number in
+    /// the message, while the probing form stays silent for callers expecting misses.
+    /// </summary>
     [Fact]
     public void UnknownNumericIdThrowsNamingTheNumber()
     {
@@ -229,6 +282,10 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.False(registry.TryGetByNumericId(999, out _));
     }
 
+    /// <summary>
+    /// Numeric lookup on a string-only registry is a programming error, and the
+    /// message has to say why rather than reporting an empty result.
+    /// </summary>
     [Fact]
     public void NumericLookupOnNonNumericRegistryThrowsClearly()
     {
@@ -243,6 +300,11 @@ public class BlockWallDefinitionTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => registry.TryGetByNumericId(0, out _));
     }
 
+    /// <summary>
+    /// A block survives JSON round-trip with no field dropped, across the three
+    /// shapes that differ structurally: air (null drop, empty sprite), a solid, and
+    /// a platform. See AssertRoundTrips for how "identical" is judged.
+    /// </summary>
     [Theory]
     [InlineData(AirJson)]
     [InlineData(StoneJson)]
@@ -252,6 +314,9 @@ public class BlockWallDefinitionTests : IDisposable
         AssertRoundTrips<BlockDefinition>(sourceJson);
     }
 
+    /// <summary>
+    /// The same guarantee for walls, which have a smaller field set.
+    /// </summary>
     [Fact]
     public void WallDefinitionRoundTripsWithoutLosingAField()
     {
@@ -335,6 +400,12 @@ public class BlockWallDefinitionTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The real data/ files load — not just hand-written fixtures.
+    ///
+    /// This is what catches a typo in shipped content, which unit fixtures never
+    /// would. Requires the repo layout on disk; see RepositoryRoot.
+    /// </summary>
     [Fact]
     public void ShippedBlockAndWallDataLoads()
     {

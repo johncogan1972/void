@@ -13,6 +13,11 @@ internal sealed class Xoshiro256PlusPlus
 {
     private readonly ulong[] _state = new ulong[4];
 
+    /// <summary>
+    /// Seeds the four state words by expanding <paramref name="seed"/> through
+    /// SplitMix64, which guarantees the all-zero state xoshiro cannot recover
+    /// from is never produced.
+    /// </summary>
     internal Xoshiro256PlusPlus(ulong seed)
     {
         SplitMix64.ExpandState(seed, _state);

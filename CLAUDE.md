@@ -181,6 +181,42 @@ Rules:
 - **Save format:** binary + zstd + XOR obfuscation. See save-format-spec.
 - **Godot conventions:** use TileMapLayer (Godot 4.3+), not TileMap. Consider Better Terrain plugin for deterministic auto-tile placement (see GDD §9.5).
 
+## Comments
+
+Code here is written to be read and edited by a human. Comment for that reader.
+
+**Every file opens with a comment stating its purpose** — what this code is for
+and where it sits in the system. In C# that is the XML `<summary>` on the file's
+single public type (the file is named after it, so the type summary *is* the file
+header); in GDScript it is a `##` block directly under `extends`.
+
+**Every class, function, method, property, signal and constant gets a concise
+comment** covering two things:
+
+1. **Purpose** — what it is for, not what its name already says.
+2. **Special requirements** — anything a human could break without noticing:
+   ordering guarantees, determinism constraints, units, valid ranges, nullability,
+   thread/frame timing, "must be called after X", "never call this from client
+   code", why an error is fatal rather than skipped.
+
+Rules that keep this useful rather than decorative:
+
+- **Never paraphrase the signature.** `/// Gets the block id.` above
+  `BlockId { get; }` is noise. If the name fully carries the meaning and there is
+  no requirement to state, write the *why* — the reason it exists, or the
+  constraint that made it look like this — or leave it out and say nothing.
+- **Explain the load-bearing decisions**, not the mechanics. A reader can see
+  *what* the loop does; they cannot see that the collection is sorted because
+  registry order feeds world generation.
+- **A run of near-identical members takes one shared comment above the run**, not
+  the same sentence ten times (see the field-offset block in
+  `src/Save/SaveEnvelope.cs`).
+- **Tests are functions too.** A descriptive test name is not a substitute for
+  saying what regression the test guards. Comment the intent — what breaks in the
+  real game if this test goes red.
+- Comments state current truth. When behaviour changes, the comment changes in
+  the same commit or it becomes a lie the next reader trusts.
+
 ## When you find issues
 
 - Missing information → ask the user; don't invent.
