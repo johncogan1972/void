@@ -3,6 +3,7 @@
 #
 #   tests/check.sh            # all rungs
 #   tests/check.sh 1 2 3      # only these rungs
+#   tests/check.sh --strict   # a SKIP is a failure (this is what CI runs)
 #
 # Rungs: 1 parse  2 lint  3 build  4 cstest  5 import  6 smoke  7 gdtest
 #
@@ -17,13 +18,46 @@ GODOT="${GODOT:-godot}"
 # Godot exits 0 while printing these to stderr, so grep the output, not $?.
 ERR_RE='SCRIPT ERROR|ERROR:|Parse Error|Failed to load|Cannot open|Condition ".*" is true'
 
-RUNGS=("$@")
+# Strict mode: a missing tool becomes a failure instead of a skip. CI runs with
+# this on, otherwise the ladder can go green having checked almost nothing --
+# rung 2 skips without gdlint, rungs 3 and 4 skip without dotnet.
+STRICT="${CHECK_STRICT:-0}"
+
+RUNGS=()
+for arg in "$@"; do
+	case "$arg" in
+		--strict) STRICT=1 ;;
+		*) RUNGS+=("$arg") ;;
+	esac
+done
 [[ ${#RUNGS[@]} -eq 0 ]] && RUNGS=(1 2 3 4 5 6 7)
 
 wants() { [[ " ${RUNGS[*]} " == *" $1 "* ]]; }
 pass()  { printf '%-8s PASS  %s\n' "$1" "${2:-}"; }
-skip()  { printf '%-8s SKIP  %s\n' "$1" "${2:-}"; }
 fail()  { printf '%-8s FAIL  %s\n' "$1" "${2:-}"; }
+
+# Exit code is the rung number, so a caller can tell which rung stopped it.
+rung_num() {
+	case "$1" in
+		parse)  echo 1 ;;
+		lint)   echo 2 ;;
+		build)  echo 3 ;;
+		cstest) echo 4 ;;
+		import) echo 5 ;;
+		smoke)  echo 6 ;;
+		gdtest) echo 7 ;;
+		*)      echo 99 ;;
+	esac
+}
+
+# A SKIP is not a PASS.
+skip() {
+	if [[ "$STRICT" == "1" ]]; then
+		fail "$1" "${2:-} [strict: a skip is not a pass]"
+		exit "$(rung_num "$1")"
+	fi
+	printf '%-8s SKIP  %s\n' "$1" "${2:-}"
+}
 
 # Print at most 20 lines of captured detail, so a failure never dumps the
 # whole engine log into an agent's context.
