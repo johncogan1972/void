@@ -43,8 +43,8 @@ public class RegistryTests : IDisposable
         File.WriteAllText(path, json);
     }
 
-    private Registry<ExampleDefinition> Load() =>
-        RegistryLoader.Load<ExampleDefinition>(new DirectoryContentSource(_root));
+    private Registry<SampleDefinition> Load() =>
+        RegistryLoader.Load<SampleDefinition>(new DirectoryContentSource(_root));
 
     private static string Entry(string id, string displayName, int sortOrder) =>
         $"{{ \"id\": \"{id}\", \"display_name\": \"{displayName}\", \"sort_order\": {sortOrder} }}";
@@ -55,7 +55,7 @@ public class RegistryTests : IDisposable
         WriteFile("stone.json", Entry("void:stone", "Stone", 10));
         WriteFile("nested/dirt.json", Entry("void:dirt", "Dirt", 20));
 
-        Registry<ExampleDefinition> registry = Load();
+        Registry<SampleDefinition> registry = Load();
 
         Assert.Equal(2, registry.Count);
         Assert.Equal("Stone", registry.Get("void:stone").DisplayName);
@@ -68,7 +68,7 @@ public class RegistryTests : IDisposable
     {
         WriteFile("pack.json", $"[{Entry("void:a", "A", 1)}, {Entry("void:b", "B", 2)}]");
 
-        Registry<ExampleDefinition> registry = Load();
+        Registry<SampleDefinition> registry = Load();
 
         Assert.Equal(new[] { "void:a", "void:b" }, registry.Ids);
     }
@@ -91,12 +91,12 @@ public class RegistryTests : IDisposable
     [Fact]
     public void RegistryIsFrozenAfterBuild()
     {
-        RegistryBuilder<ExampleDefinition> builder = new();
-        builder.Add(new ExampleDefinition { Id = "void:a" }, "a.json");
-        Registry<ExampleDefinition> registry = builder.Build();
+        RegistryBuilder<SampleDefinition> builder = new();
+        builder.Add(new SampleDefinition { Id = "void:a" }, "a.json");
+        Registry<SampleDefinition> registry = builder.Build();
 
         // Adding to the builder afterwards must not affect the built registry.
-        builder.Add(new ExampleDefinition { Id = "void:b" }, "b.json");
+        builder.Add(new SampleDefinition { Id = "void:b" }, "b.json");
 
         Assert.Single(registry);
         Assert.False(registry.Contains("void:b"));
@@ -119,7 +119,7 @@ public class RegistryTests : IDisposable
     public void UnknownIdLookupThrowsNamingTheId()
     {
         WriteFile("stone.json", Entry("void:stone", "Stone", 10));
-        Registry<ExampleDefinition> registry = Load();
+        Registry<SampleDefinition> registry = Load();
 
         ContentLoadException ex = Assert.Throws<ContentLoadException>(() => registry.Get("void:missing"));
 
@@ -130,9 +130,9 @@ public class RegistryTests : IDisposable
     public void TryGetProbesWithoutThrowing()
     {
         WriteFile("stone.json", Entry("void:stone", "Stone", 10));
-        Registry<ExampleDefinition> registry = Load();
+        Registry<SampleDefinition> registry = Load();
 
-        Assert.True(registry.TryGet("void:stone", out ExampleDefinition found));
+        Assert.True(registry.TryGet("void:stone", out SampleDefinition found));
         Assert.Equal("Stone", found.DisplayName);
         Assert.False(registry.TryGet("void:missing", out _));
     }
@@ -180,7 +180,7 @@ public class RegistryTests : IDisposable
         string missing = Path.Combine(_root, "does-not-exist");
 
         ContentLoadException ex = Assert.Throws<ContentLoadException>(
-            () => RegistryLoader.Load<ExampleDefinition>(new DirectoryContentSource(missing)));
+            () => RegistryLoader.Load<SampleDefinition>(new DirectoryContentSource(missing)));
 
         Assert.Contains("does-not-exist", ex.Message, StringComparison.Ordinal);
     }
@@ -189,7 +189,7 @@ public class RegistryTests : IDisposable
     public void EmptyDirectoryProducesEmptyRegistry()
     {
         Assert.Empty(Load());
-        Assert.Empty(Registry<ExampleDefinition>.Empty);
+        Assert.Empty(Registry<SampleDefinition>.Empty);
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class RegistryTests : IDisposable
         WriteFile("base/a.json", Entry("void:a", "A", 1));
         WriteFile("extra/b.json", Entry("void:b", "B", 2));
 
-        RegistryBuilder<ExampleDefinition> builder = new();
+        RegistryBuilder<SampleDefinition> builder = new();
         RegistryLoader.LoadInto(builder, new DirectoryContentSource(Path.Combine(_root, "base")));
         RegistryLoader.LoadInto(builder, new DirectoryContentSource(Path.Combine(_root, "extra")));
 

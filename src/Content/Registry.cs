@@ -25,6 +25,16 @@ public sealed class Registry<T> : IReadOnlyCollection<T>
     private readonly T[] _sorted;
     private readonly string[] _sortedIds;
 
+    // Populated only when T carries a numeric key (INumericContentDefinition).
+    // Null for plain definition types, which is what makes the numeric lookups
+    // throw a clear "this registry has no numeric ids" instead of quietly
+    // returning nothing. Lookup-only, so hash order never escapes: iteration
+    // still goes through _sorted.
+    private readonly Dictionary<ushort, T>? _byNumericId;
+
+    private static readonly bool HasNumericIds =
+        typeof(INumericContentDefinition).IsAssignableFrom(typeof(T));
+
     /// <summary>An empty registry of this type.</summary>
     public static Registry<T> Empty { get; } = new Registry<T>(new List<T>());
 
@@ -42,10 +52,28 @@ public sealed class Registry<T> : IReadOnlyCollection<T>
         _sortedIds = new string[sorted.Length];
         _byId = new Dictionary<string, T>(sorted.Length, StringComparer.Ordinal);
 
+        _byNumericId = HasNumericIds
+            ? new Dictionary<ushort, T>(sorted.Length)
+            : null;
+
         for (int i = 0; i < sorted.Length; i++)
         {
             _sortedIds[i] = sorted[i].Id;
             _byId.Add(sorted[i].Id, sorted[i]);
+
+            if (_byNumericId is not null)
+            {
+                // RegistryBuilder already rejected numeric collisions with a
+                // message naming both files; this indexer form is a safety net
+                // for registries built by hand in tests or tooling.
+                ushort numeric = ((INumericContentDefinition)sorted[i]!).NumericId;
+                if (!_byNumericId.TryAdd(numeric, sorted[i]))
+                {
+                    throw new ContentLoadException(
+                        $"Duplicate {typeof(T).Name} numeric id {numeric}: claimed by both " +
+                        $"'{_byNumericId[numeric].Id}' and '{sorted[i].Id}'.");
+                }
+            }
         }
     }
 
@@ -98,6 +126,59 @@ public sealed class Registry<T> : IReadOnlyCollection<T>
         return false;
     }
 
+    /// <summary>
+    /// Looks up a definition by its stable numeric key, throwing if absent.
+    /// This is the hot path for tile rendering and mining, which hold
+    /// <c>block_id</c> / <c>wall_id</c> numbers rather than strings.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// If <typeparamref name="T"/> does not implement
+    /// <see cref="INumericContentDefinition"/> and so has no numeric keys.
+    /// </exception>
+    /// <exception cref="ContentLoadException">If no such numeric id is registered.</exception>
+    public T GetByNumericId(ushort numericId)
+    {
+        Dictionary<ushort, T> map = RequireNumericMap();
+
+        if (!map.TryGetValue(numericId, out T? value))
+        {
+            throw new ContentLoadException(
+                $"Unknown {typeof(T).Name} numeric id {numericId}. Registry holds {Count} entries.");
+        }
+
+        return value;
+    }
+
+    /// <summary>Probing form of <see cref="GetByNumericId"/>.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// If <typeparamref name="T"/> has no numeric keys.
+    /// </exception>
+    public bool TryGetByNumericId(ushort numericId, out T value)
+    {
+        Dictionary<ushort, T> map = RequireNumericMap();
+
+        if (map.TryGetValue(numericId, out T? found))
+        {
+            value = found;
+            return true;
+        }
+
+        value = default!;
+        return false;
+    }
+
+    private Dictionary<ushort, T> RequireNumericMap()
+    {
+        if (_byNumericId is null)
+        {
+            throw new InvalidOperationException(
+                $"{typeof(T).Name} does not implement {nameof(INumericContentDefinition)}, " +
+                "so this registry has no numeric ids. Use Get(string) instead.");
+        }
+
+        return _byNumericId;
+    }
+
     /// <summary>Indexer form of <see cref="Get"/>.</summary>
     public T this[string id] => Get(id);
 
@@ -120,6 +201,7 @@ public sealed class RegistryBuilder<T>
 {
     private readonly List<T> _entries = new();
     private readonly Dictionary<string, string> _originById = new(StringComparer.Ordinal);
+    private readonly Dictionary<ushort, string> _originByNumericId = new();
 
     /// <summary>Number of definitions accumulated so far.</summary>
     public int Count => _entries.Count;
@@ -147,6 +229,24 @@ public sealed class RegistryBuilder<T>
             throw new ContentLoadException(
                 $"Duplicate {typeof(T).Name} id '{id}': defined in both " +
                 $"'{firstFile}' and '{fileName}'. Ids must be unique.");
+        }
+
+        // Types carrying a numeric key (block_id, wall_id) get the same
+        // duplicate treatment as string ids: saved tiles store the raw number,
+        // so two definitions claiming one number is a silent world corruption,
+        // not a warning. Checked at runtime rather than via a second generic
+        // constraint so RegistryBuilder stays one type for all content.
+        if (definition is INumericContentDefinition numeric)
+        {
+            if (_originByNumericId.TryGetValue(numeric.NumericId, out string? firstNumericFile))
+            {
+                throw new ContentLoadException(
+                    $"Duplicate {typeof(T).Name} numeric id {numeric.NumericId} (on '{id}'): " +
+                    $"defined in both '{firstNumericFile}' and '{fileName}'. " +
+                    "Numeric ids must be unique and are stable forever.");
+            }
+
+            _originByNumericId.Add(numeric.NumericId, fileName);
         }
 
         _originById.Add(id, fileName);
