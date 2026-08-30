@@ -2,9 +2,11 @@
 
 Runtime, data-driven content: JSON only, no code.
 
-Loaded at boot by `RegistryLoader` (`src/Content/`) through
-`GodotContentSource` over `res://data/...`. Adding an entry is a JSON change
-only — no recompile.
+Loaded at boot by the `ContentBoot` autoload, which calls
+`ContentLoader.LoadAll` (`src/Content/`) with a `GodotContentSource` over
+`res://data/<folder>`. Tests call the same `LoadAll` with a
+`DirectoryContentSource` over this tree, so there is exactly one load path.
+Adding an entry is a JSON change only — no recompile.
 
 Rules:
 
@@ -46,13 +48,16 @@ Cross-registry entries (`biomes/`, `loot_tables/`, `enemies/`, `prefabs/`):
   id that does not resolve are all fatal — each one stamps a scrambled or
   hollow structure into the world with no error anywhere downstream.
 - Load order is therefore: blocks + walls → items → loot tables → enemies →
-  prefabs → biomes.
-- Prefab and enemy ids in a biome still dangle **at load**.
-  `BiomeRegistryLoader.ValidateDeferredReferences` is written and fatal on a
-  dangling ref, but nothing calls it yet: both registries now exist, and the
-  boot sequence that would pass them to it is VOID-025. Until then
-  the only thing holding those refs honest is a test asserting that every
-  `enemy_id` in `biomes/` exists in `enemies/`.
+  biomes → prefabs. It is declared once, as `ContentLoader.LoadOrder`, and the
+  loader body follows it step for step. It is a fixed sequence, never a retry
+  over unresolved references — a retry turns a content bug into a silent
+  partial load.
+- A biome's vegetation prefab ids and spawn-pool `enemy_id`s close the one cycle
+  in that order (biomes load before prefabs), so they are checked last, by
+  `BiomeRegistryLoader.ValidateDeferredReferences`, which `ContentLoader.LoadAll`
+  calls once everything is loaded. A dangling ref there is fatal like any other.
+- Anything fatal aborts boot: `ContentBoot` pushes the error and quits rather
+  than running on empty registries.
 
 `items/` carries base fields only (`id`, `display_name`, `sprite`,
 `max_stack`); stats, rarity and equip slots land in Phase 5. `enemies/` likewise
@@ -60,5 +65,11 @@ carries no health, damage or AI — that is Phase 9. Fields are added when their
 meaning is settled, never guessed ahead of time.
 
 Current registries: `blocks/`, `walls/` (VOID-018), `biomes/` (VOID-022),
-`items/`, `enemies/`, `loot_tables/` (VOID-023), `prefabs/` (VOID-024). The
-VOID-006 `example/` folder is gone — the real registries prove the loader now.
+`items/`, `enemies/`, `loot_tables/` (VOID-023), `prefabs/` (VOID-024), all seven
+wired into boot by VOID-025. The VOID-006 `example/` folder is gone — the real
+registries prove the loader now.
+
+`void:meadow`'s vegetation lists are empty on purpose: they named oak, wildflower
+and tall-grass prefabs that do not exist, which boot now rejects. VOID-026 (the
+Tiled prefab converter) restores them with the real prefabs; the removed entries
+are recorded in a comment in `biomes/biomes.json`.
