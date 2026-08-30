@@ -1,6 +1,6 @@
 # World Data Model — Feature Spec
 
-**Version:** 0.1
+**Version:** 0.3
 **Status:** Draft
 **Companion to:** world-generation-spec.md (§5, §6, §10)
 
@@ -94,7 +94,10 @@ One manifest file per world (home or portal), stored at the world's root save di
 **Manifest fields:**
 
 ```yaml
-# Illustrative — actual serialisation format TBD (JSON or binary)
+# Serialised as plain JSON inside the save envelope, which supplies zstd,
+# obfuscation and the integrity hash (§9.1, save-format-spec §4). Field order is
+# pinned so two saves diff line-for-line, and nulls are written rather than
+# skipped — an explicit null is a value, a missing field is a corrupt file.
 world_id             : UUID          # unique per world instance
 world_type           : string        # "home", "portal_scorched", "portal_sunken", etc.
 seed                 : int64         # the world's generation seed
@@ -226,17 +229,21 @@ weight               : float              # relative probability when generator 
 Biomes drive generation choices per world region. One biome definition per biome type.
 
 ```yaml
-biome_id             : string             # e.g. "forest_grassland"
+id                   : string             # e.g. "void:meadow" — the registry key (§7)
 display_name         : string             # for UI / debug
 layer_category       : string             # "surface", "underground", "deep", "void"
 
-# Tile palette
+# Tile palette — string content ids, resolved through the block and wall
+# registries at load. Not the raw uint16 that tile records store: a biome is
+# authored content, and an author writing "void:grass" cannot silently name the
+# wrong block the way a number can. The loader fails loudly on an id that does
+# not resolve, which a number could never do.
 palette:
-  surface_block      : uint16             # top layer (grass, sand, snow)
-  subsurface_block   : uint16             # layer just below surface
-  base_block         : uint16             # bulk fill for the layer
-  wall_default       : uint16
-  wall_ambient       : uint16[]           # variations used stochastically
+  surface_block      : string             # top layer (grass, sand, snow)
+  subsurface_block   : string             # layer just below surface
+  base_block         : string             # bulk fill for the layer
+  wall_default       : string
+  wall_ambient       : string[]           # variations used stochastically
 
 # Vegetation & decoration
 vegetation:
@@ -244,10 +251,13 @@ vegetation:
   plants             : PrefabRef[]
   decorations        : PrefabRef[]
 
-# Ore biases — multipliers applied to base ore distribution
+# Ore biases — multipliers applied to base ore distribution. Keyed by ore
+# content id. An ore not listed multiplies by 1.0: unbiased, never "absent".
+# Iteration is ordinal-sorted by key, because this feeds generation and a
+# hash-ordered map would make output depend on authoring order (§8).
 ore_biases:
-  copper             : float
-  iron               : float
+  void:copper        : float
+  void:iron          : float
   # ... per ore type
 
 # Enemy spawn pool
@@ -257,7 +267,7 @@ enemies:
     time_of_day      : string             # "any", "day", "night"
 
 # Underground variant reference (surface biomes only)
-underground_variant  : string             # biome_id of the matching underground biome, or null
+underground_variant  : string             # id of the matching underground biome, or null
 
 # Ambient
 ambient:
@@ -272,6 +282,8 @@ hazards:
 ```
 
 **Surface / underground pairing:** each surface biome names its `underground_variant`. The underground layer generator reads the surface biome column-by-column and places the matching underground biome directly below. Handles biome transitions cleanly (surface transitions from forest to desert → underground transitions in the same columns).
+
+**Loading is a two-step, and the first step proves nothing.** A biome names blocks, walls and another biome, so a document that parses cleanly can still resolve to nothing. Biome definitions are therefore marked `ICrossRegistryValidated` and the generic `RegistryLoader` refuses them: they load only through `BiomeRegistryLoader`, which takes the registries they reference and fails loudly on an id that does not resolve, on an `underground_variant` naming a biome that does not exist, and on one whose target is not `layer_category: underground`. Prefab and enemy ids are the exception — those registries do not exist yet, so their check is deferred to `ValidateDeferredReferences` rather than skipped.
 
 ## 7. Data Registries
 
@@ -294,9 +306,105 @@ All world-gen code that produces the structures above must respect the determini
 - Random selection from a registry always uses the seeded generation RNG.
 - Prefab variant selection is deterministic given world seed + placement location.
 
-## 9. Open Questions
+## 9. Resolved Decisions
 
-- **Serialisation format for manifests** — JSON (debuggable, larger) vs binary (compact, opaque)? Recommend JSON with zstd compression at rest — best of both.
-- **Format version migration strategy** — when the tile format changes, how do existing saves upgrade? Recommend a version tag on every file, with a migrator library.
-- **Chunk file granularity** — one file per chunk (current proposal) vs a single append-only chunk container per world. One-file-per-chunk is simpler and OS-friendly; consider container only if we hit file count limits (Medium world has ~2,900 chunks, well within limits).
-- **In-memory tile representation** — pack to 8 bytes as spec'd, or use struct-of-arrays (separate arrays for block_id, wall_id, etc.) for cache-friendlier iteration? Micro-optimisation, revisit if profiling shows a problem.
+The four questions this section originally held are settled. They are kept here
+with their reasoning rather than deleted, because the reasoning is the part that
+is expensive to reconstruct. One new question is open at the end.
+
+### 9.1 Manifest serialisation format — JSON inside the save envelope
+
+**Decision:** manifests are plain JSON payloads written inside the standard save
+envelope. Compression is the envelope's job, not the schema's.
+
+The original question was JSON (debuggable, larger) versus binary (compact,
+opaque), with a recommendation of "JSON with zstd compression at rest". That is
+precisely what the save envelope already does: it takes an opaque payload and
+applies zstd, XOR obfuscation and a SHA-256 integrity hash (save-format-spec
+§4, §7, §8). `SaveFileKind` already enumerates `CampaignManifest` and
+`WorldManifest` as payload kinds.
+
+So the question resolves to "both", with no new machinery and no second format
+to maintain. Manifests stay debuggable — dump the decoded payload and read it —
+while paying binary's size cost at rest.
+
+**Implemented by:** VOID-007. **Consumed by:** VOID-021.
+
+### 9.2 Format version migration — version tags now, migrator later
+
+**Decision:** every file carries a schema version from day one. The migrator
+library is deliberately deferred until there is a shipped version to migrate
+from.
+
+The original recommendation was "a version tag on every file, with a migrator
+library". The first half is already true: `SaveEnvelope` carries both
+`FormatVersion` (the payload's schema version) and `EnvelopeVersion` (the
+container's), on every save file the game writes. The chunk header carries its
+own `format_version` as well (§3).
+
+The second half is deferred on purpose. A migrator written before its first real
+migration encodes a guess about what will change, and that guess is usually
+wrong; worse, it creates a code path that nothing exercises. What the current
+phase must guarantee instead is that the versions written are correct and
+non-zero, and that a version this build does not recognise fails loudly rather
+than being parsed optimistically. Given that, the first migration can be written
+when the first breaking change is actually known.
+
+**Implemented by:** VOID-007. **Enforced by:** VOID-020, VOID-021.
+
+### 9.3 Chunk file granularity — one file per chunk
+
+**Decision:** one file per chunk, named `<chunk_x>_<chunk_y>.chunk`, as
+described in §3. The single append-only container per world is rejected.
+
+The container's only advantage is file count, and file count is not a problem at
+this scale: a Medium world is roughly 2,900 chunks, orders of magnitude inside
+any filesystem's practical limits. Against that, one-file-per-chunk gets
+filesystem-level LRU caching for free, lets a single corrupted chunk be
+quarantined without touching the rest of the world, and makes partial writes
+survivable through the existing atomic write helper. A container would have to
+reimplement all three.
+
+Revisit only if file count becomes a measured problem — for instance if Large
+worlds land far above the current estimate, or a target platform turns out to
+have a hostile filesystem.
+
+### 9.4 In-memory tile representation — packed, not struct-of-arrays
+
+**Decision:** tiles stay a packed array as specified in §2. Struct-of-arrays is
+not adopted.
+
+The original text already called this a micro-optimisation to revisit under
+profiling, and that judgement stands. Struct-of-arrays would help a workload
+that sweeps one field across many tiles while ignoring the rest; most real
+access — generation writing a tile, streaming serialising a chunk, rendering
+reading block and wall together — touches several fields of the same tile at
+once, which is the case the packed layout already suits.
+
+Revisit when chunk iteration actually appears in a profile, not before. This is
+an in-memory representation only: it can change without a save migration, which
+is exactly why it does not need deciding early.
+
+### 9.5 Open — liquid field packing costs fill resolution
+
+**Status: open.** This is the live question for Phase 1.
+
+§2's field table sums to **9 bytes**, not the 8 the same section recommends:
+`uint16 + uint16 + uint8 + uint8 + uint16 + uint8`. §2 closes the gap by packing
+`liquid_type` and `liquid_level` into a single byte as two nibbles — which drops
+liquid fill resolution from `0`–`255` to `0`–`15`.
+
+That is a real trade, not a free win, and unlike §9.4 it **is** baked into the
+on-disk format: changing it later is a save migration.
+
+- **Nibble-pack to 8 bytes.** 16 fill levels. Liquid reads as a visual gradient
+  rather than a measurement, and comparable games ship with similar granularity
+  without it being visible.
+- **Accept 9 bytes.** Full `0`–`255` fill, roughly 46 MB more resident on a
+  Medium world, and alignment padding to 10 or 12 bytes wastes most of what the
+  extra byte bought.
+
+Nibble-packing is recommended, on the grounds that the memory is better spent on
+something the player can perceive. **Not yet confirmed.**
+
+**Tracked on:** VOID-019.

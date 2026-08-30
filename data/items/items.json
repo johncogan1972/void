@@ -1,0 +1,36 @@
+[
+  // Item ids are stable forever: saved inventories, chests and loot tables all
+  // reference items by string id, so retire ids, never repurpose them. These
+  // four exist because data/blocks/blocks.json already names them as
+  // drop_item_id; every drop_item_id in the block registry must resolve here.
+  //
+  // Deliberately absent until Phase 5 (inventory, equipment, crafting): stats,
+  // rarity ranges, equip slots, tool power, categories, tooltips. A field whose
+  // meaning is undecided is worse than a missing one — content authored against
+  // a wrong shape is expensive to undo. max_stack is per-item by design: GDD
+  // §5.6 sets no universal cap.
+  {
+    "id": "void:dirt_block",
+    "display_name": "Dirt Block",
+    "sprite": "res://assets/items/dirt_block.png",
+    "max_stack": 999
+  },
+  {
+    "id": "void:stone_block",
+    "display_name": "Stone Block",
+    "sprite": "res://assets/items/stone_block.png",
+    "max_stack": 999
+  },
+  {
+    "id": "void:sand_block",
+    "display_name": "Sand Block",
+    "sprite": "res://assets/items/sand_block.png",
+    "max_stack": 999
+  },
+  {
+    "id": "void:wood_block",
+    "display_name": "Wood Block",
+    "sprite": "res://assets/items/wood_block.png",
+    "max_stack": 999
+  }
+]

@@ -81,6 +81,10 @@ public class GoldenVectorTests
             state);
     }
 
+    /// <summary>
+    /// Frozen output for seed 0. A change here means every world generated from
+    /// this seed differs — see the provenance note on the class before touching it.
+    /// </summary>
     [Fact]
     public void Xoshiro256PlusPlusSeedZeroGolden()
     {
@@ -103,6 +107,10 @@ public class GoldenVectorTests
         }
     }
 
+    /// <summary>
+    /// Frozen output for seed 1, cross-checked against a second independent
+    /// transcription of the reference C.
+    /// </summary>
     [Fact]
     public void Xoshiro256PlusPlusSeedOneGolden()
     {
@@ -125,6 +133,10 @@ public class GoldenVectorTests
         }
     }
 
+    /// <summary>
+    /// Frozen output for a realistic non-trivial world seed, so the vectors are not
+    /// all clustered near zero.
+    /// </summary>
     [Fact]
     public void Xoshiro256PlusPlusWorldSeedGolden()
     {
@@ -160,6 +172,11 @@ public class GoldenVectorTests
         Assert.Equal(expected, Rng.DeriveSeed(0x0123456789ABCDEFUL, key));
     }
 
+    /// <summary>
+    /// Frozen output for two named sub-streams. Pins the derivation scheme as well
+    /// as the generator: terrain and caves must stay independent of each other and
+    /// of the order they were derived in.
+    /// </summary>
     [Fact]
     public void SubStreamSequenceGolden()
     {

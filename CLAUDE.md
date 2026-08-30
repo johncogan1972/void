@@ -79,7 +79,16 @@ and the ticket in both directions.
 **Determinism (world generation only):**
 - All randomness from the world seed via seeded streams. Use xoshiro256++, never `System.Random`, `DateTime.Now`, `Guid.NewGuid()`, hardware entropy.
 - Iteration order affecting generated output must be explicit — sorted collections, never `HashSet`/`Dictionary` order.
-- CI test: regenerate reference seed → hash the world → must match golden.
+- CI test: regenerate reference seed → hash the payload → must match golden.
+  `Void.Tests/ReferenceSeedTests.cs` holds the golden SHA-256;
+  `src/Determinism/` builds the payload. The payload source is swappable
+  (`ReferencePayload.Current`) — Phase 0 hashes a fixed RNG draw sequence,
+  Phase 2 should point it at a generated world.
+- **Regenerating the golden is a deliberate act, never a fix for a red build.**
+  The failure message prints the actual hash; paste it into `GoldenHash` in the
+  same commit as the generator change and say why in the commit message. A
+  moved hash means every existing world generates differently. If you did not
+  intend to change generation, the test found a bug — fix the bug.
 - Runtime (combat, loot) is deliberately non-deterministic; determinism rule applies to world gen only.
 
 **Multiplayer-ready from day 1:**
@@ -136,8 +145,9 @@ Open only what the task needs. Descriptions are the summary — use them to deci
 Project root: /run/media/system/Game_Drive_Two/gamedev/godot-projects/void
 Always pass --path explicitly; never rely on cwd. Godot 4.7.
 
-- Verify all:    tests/check.sh            (parse, lint, build, cstest, import, smoke, gdtest)
+- Verify all:    tests/check.sh            (parse, lint, build, cstest, import, smoke, gdtest, export)
 - Verify some:   tests/check.sh 1 2        (rung numbers; exits with failing rung)
+- As CI runs it: tests/check.sh --strict   (a SKIP becomes a FAIL)
 - Parse check:   godot --headless --path <root> --check-only --script res://path/to.gd
 - Reimport:      godot --headless --path <root> --import
 - Run tests:     godot --headless --path <root> --script res://tests/run_tests.gd
@@ -156,7 +166,12 @@ Rules:
 - `src/BuildInfo.cs` proves the C# assembly loads. Delete it once real C# exists.
 - `Void.Tests/HarnessTests.cs` proves the xunit harness reaches the game assembly.
   Delete it once real C# tests exist.
-- A SKIP is not a PASS. Rungs 2/3/4 skip when their tool is missing.
+- Rung 8 (export) builds a real .pck and reads `data/**/*.json` back out of it.
+  Every other rung reads the loose files off disk, so only this one can catch
+  content that an export would drop. It needs no export templates, but it does
+  need `export_presets.cfg` — which is tracked, deliberately (VOID-013).
+- A SKIP is not a PASS. Rungs 2/3/4 skip when their tool is missing. `--strict`
+  (or `CHECK_STRICT=1`) turns those skips into failures; CI always uses it.
 - Godot must be the .NET build (`godot --version` shows `.mono`), or rung 3 output
   compiles but the engine cannot load it.
 
@@ -169,6 +184,42 @@ Rules:
 - **Data-driven:** items, biomes, recipes, loot tables, enemies, dialogue all in JSON. Registry pattern (see world-data-model-spec §7). New content = JSON entries, no code changes.
 - **Save format:** binary + zstd + XOR obfuscation. See save-format-spec.
 - **Godot conventions:** use TileMapLayer (Godot 4.3+), not TileMap. Consider Better Terrain plugin for deterministic auto-tile placement (see GDD §9.5).
+
+## Comments
+
+Code here is written to be read and edited by a human. Comment for that reader.
+
+**Every file opens with a comment stating its purpose** — what this code is for
+and where it sits in the system. In C# that is the XML `<summary>` on the file's
+single public type (the file is named after it, so the type summary *is* the file
+header); in GDScript it is a `##` block directly under `extends`.
+
+**Every class, function, method, property, signal and constant gets a concise
+comment** covering two things:
+
+1. **Purpose** — what it is for, not what its name already says.
+2. **Special requirements** — anything a human could break without noticing:
+   ordering guarantees, determinism constraints, units, valid ranges, nullability,
+   thread/frame timing, "must be called after X", "never call this from client
+   code", why an error is fatal rather than skipped.
+
+Rules that keep this useful rather than decorative:
+
+- **Never paraphrase the signature.** `/// Gets the block id.` above
+  `BlockId { get; }` is noise. If the name fully carries the meaning and there is
+  no requirement to state, write the *why* — the reason it exists, or the
+  constraint that made it look like this — or leave it out and say nothing.
+- **Explain the load-bearing decisions**, not the mechanics. A reader can see
+  *what* the loop does; they cannot see that the collection is sorted because
+  registry order feeds world generation.
+- **A run of near-identical members takes one shared comment above the run**, not
+  the same sentence ten times (see the field-offset block in
+  `src/Save/SaveEnvelope.cs`).
+- **Tests are functions too.** A descriptive test name is not a substitute for
+  saying what regression the test guards. Comment the intent — what breaks in the
+  real game if this test goes red.
+- Comments state current truth. When behaviour changes, the comment changes in
+  the same commit or it becomes a lie the next reader trusts.
 
 ## When you find issues
 

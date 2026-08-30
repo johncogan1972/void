@@ -1,0 +1,27 @@
+[
+  // wall_id is declared here and is stable forever. 0 is "no wall".
+  {
+    "id": "void:no_wall",
+    "wall_id": 0,
+    "display_name": "No Wall",
+    "sprite": ""
+  },
+  {
+    "id": "void:dirt_wall",
+    "wall_id": 1,
+    "display_name": "Dirt Wall",
+    "sprite": "res://assets/tiles/dirt_wall.png"
+  },
+  {
+    "id": "void:stone_wall",
+    "wall_id": 2,
+    "display_name": "Stone Wall",
+    "sprite": "res://assets/tiles/stone_wall.png"
+  },
+  {
+    "id": "void:wood_wall",
+    "wall_id": 3,
+    "display_name": "Wood Wall",
+    "sprite": "res://assets/tiles/wood_wall.png"
+  }
+]
