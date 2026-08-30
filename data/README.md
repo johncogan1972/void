@@ -27,5 +27,16 @@ Numeric ids (`blocks/`, `walls/`):
 - `block_id = 0` (air) and `wall_id = 0` (no wall) are real registry entries,
   not absences.
 
-Current registries: `blocks/`, `walls/` (VOID-018). The VOID-006 `example/`
-folder is gone — the real registries prove the loader now.
+Cross-registry entries (`biomes/`):
+
+- A biome names blocks, walls and another biome, so parsing its JSON proves
+  nothing about whether those ids resolve. Its definition is marked
+  `ICrossRegistryValidated`, and `RegistryLoader` **refuses** such a type: load
+  it through `BiomeRegistryLoader.Load`, which takes the registries it points at
+  and fails loudly on an id that does not resolve.
+- Prefab and enemy ids in a biome are allowed to dangle for now — those
+  registries land in VOID-024 and VOID-023. `ValidateDeferredReferences` is
+  waiting for them and is fatal on a dangling ref once wired up.
+
+Current registries: `blocks/`, `walls/` (VOID-018), `biomes/` (VOID-022). The
+VOID-006 `example/` folder is gone — the real registries prove the loader now.
