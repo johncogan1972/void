@@ -2,7 +2,11 @@
 .godot/
 /android/
 *.translation
-export_presets.cfg
+
+# export_presets.cfg IS tracked (VOID-013). The export include filter is what
+# carries data/*.json into a build, so it has to be reviewable rather than
+# living on one machine. Keep credentials out of it: if a preset ever needs a
+# keystore password or a Steam key, put it in an untracked override, never here.
 
 # Local docs archive
 docs/project-docs.zip

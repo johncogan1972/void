@@ -6,6 +6,7 @@
 #   tests/check.sh --strict   # a SKIP is a failure (this is what CI runs)
 #
 # Rungs: 1 parse  2 lint  3 build  4 cstest  5 import  6 smoke  7 gdtest
+#        8 export
 #
 # Output is deliberately terse: one line per rung. Error detail is printed
 # only for the rung that fails. Exit code is the rung number that failed.
@@ -30,7 +31,7 @@ for arg in "$@"; do
 		*) RUNGS+=("$arg") ;;
 	esac
 done
-[[ ${#RUNGS[@]} -eq 0 ]] && RUNGS=(1 2 3 4 5 6 7)
+[[ ${#RUNGS[@]} -eq 0 ]] && RUNGS=(1 2 3 4 5 6 7 8)
 
 wants() { [[ " ${RUNGS[*]} " == *" $1 "* ]]; }
 pass()  { printf '%-8s PASS  %s\n' "$1" "${2:-}"; }
@@ -46,6 +47,7 @@ rung_num() {
 		import) echo 5 ;;
 		smoke)  echo 6 ;;
 		gdtest) echo 7 ;;
+		export) echo 8 ;;
 		*)      echo 99 ;;
 	esac
 }
@@ -166,4 +168,50 @@ if wants 7; then
 		exit 7
 	fi
 	pass gdtest "$summary"
+fi
+
+# --- rung 8: export ----------------------------------------------------------
+# The editor reads data/*.json straight off disk, so every other rung passes
+# whether or not the export preset carries those files. Only a real pack proves
+# a built game has its content (VOID-013). Exporting a .pck needs no export
+# templates, so this runs anywhere the editor binary does.
+if wants 8; then
+	expected=$(find "$ROOT/data" -name '*.json' | wc -l | tr -d ' ')
+
+	if [[ ! -f "$ROOT/export_presets.cfg" ]]; then
+		skip export "no export_presets.cfg"
+	elif [[ "$expected" -eq 0 ]]; then
+		fail export "no data/*.json found to check for"
+		exit 8
+	else
+		pack_dir=$(mktemp -d)
+		trap 'rm -rf "$pack_dir"' EXIT
+		pack="$pack_dir/void.pck"
+
+		out=$("$GODOT" --headless --path "$ROOT" --export-pack Linux "$pack" 2>&1)
+		if [[ ! -f "$pack" ]]; then
+			fail export "export-pack produced no file"
+			detail "$out"
+			exit 8
+		fi
+
+		# Run from the pack's own directory: started inside the project, Godot
+		# would open project.godot and read the loose files, which is exactly
+		# the false pass this rung exists to avoid.
+		out=$(cd "$pack_dir" && "$GODOT" --headless --main-pack "$pack" \
+			--script res://tests/export_check.gd 2>&1)
+		found=$(echo "$out" | grep -oE 'EXPORT_JSON_FOUND=[0-9]+' | tail -1 | cut -d= -f2)
+
+		if [[ -z "$found" ]]; then
+			fail export "check script produced no count"
+			detail "$out"
+			exit 8
+		elif [[ "$found" != "$expected" ]]; then
+			fail export "pack has $found of $expected data/*.json"
+			echo "$out" | grep -E 'EXPORT_CHECK|SCRIPT ERROR' | head -20
+			exit 8
+		fi
+
+		pass export "$found/$expected data json readable from pack"
+	fi
 fi
