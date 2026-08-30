@@ -1,0 +1,43 @@
+[
+  // Enemy ids are stable forever: biome spawn pools and saved worlds reference
+  // enemies by string id. These five are fixed by data/biomes/biomes.json, which
+  // already names them in its spawn pools; every enemy_id there must resolve
+  // here. Names follow biome-content-spec §3.1 wording — nothing new is invented.
+  //
+  // loot_table_id must resolve against data/loot_tables/loot_tables.json, or be
+  // null, which legitimately means "drops nothing yet".
+  //
+  // Deliberately absent until Phase 9 (combat and AI): health, damage, defence,
+  // movement, spawn conditions, behaviour trees. Guessing a stat block now bakes
+  // a wrong shape into authored content.
+  {
+    "id": "void:rabbit",
+    "display_name": "Rabbit",
+    "sprite": "res://assets/enemies/rabbit.png",
+    "loot_table_id": "void:rabbit_loot"
+  },
+  {
+    "id": "void:deer",
+    "display_name": "Deer",
+    "sprite": "res://assets/enemies/deer.png",
+    "loot_table_id": "void:rabbit_loot"
+  },
+  {
+    "id": "void:grey_wolf",
+    "display_name": "Grey Wolf",
+    "sprite": "res://assets/enemies/grey_wolf.png",
+    "loot_table_id": null
+  },
+  {
+    "id": "void:small_skeleton",
+    "display_name": "Small Skeleton",
+    "sprite": "res://assets/enemies/small_skeleton.png",
+    "loot_table_id": "void:small_skeleton_loot"
+  },
+  {
+    "id": "void:cave_beetle",
+    "display_name": "Cave Beetle",
+    "sprite": "res://assets/enemies/cave_beetle.png",
+    "loot_table_id": "void:cave_beetle_loot"
+  }
+]
