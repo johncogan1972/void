@@ -50,15 +50,16 @@ public static class BiomeRegistryLoader
     /// Resolves the references this ticket cannot check yet: vegetation prefab
     /// ids and enemy pool ids.
     ///
-    /// <para><b>Nothing calls this yet — by design.</b> The prefab registry lands
-    /// in VOID-024 and the enemy registry in VOID-023; until then those refs are
-    /// allowed to dangle, because biome data legitimately runs ahead of the
-    /// content it names. Wiring this call into the boot sequence is part of
-    /// VOID-023 / VOID-024, and the id-set parameters become
+    /// <para><b>Nothing calls this yet — by design.</b> Both registries now
+    /// exist (<see cref="EnemyRegistryLoader"/>, VOID-023;
+    /// <see cref="PrefabRegistryLoader"/>, VOID-024), so the only thing still
+    /// deferred is the boot sequence that loads them and passes them here —
+    /// that is VOID-025, and the id-set parameters become
     /// <c>Registry&lt;PrefabDefinition&gt;</c> and
-    /// <c>Registry&lt;EnemyDefinition&gt;</c> at that point. What is not
-    /// deferred is the severity: when this check does run, a dangling ref is
-    /// fatal, never a warning.</para>
+    /// <c>Registry&lt;EnemyDefinition&gt;</c> at that point. Until then biome
+    /// prefab and enemy refs are allowed to dangle. What is not deferred is the
+    /// severity: when this check does run, a dangling ref is fatal, never a
+    /// warning.</para>
     /// </summary>
     /// <param name="biomes">Registry returned by <see cref="Load"/>.</param>
     /// <param name="knownPrefabIds">Every registered prefab id. Lookup only, so its order is irrelevant.</param>

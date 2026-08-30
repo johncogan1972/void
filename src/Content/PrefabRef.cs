@@ -8,8 +8,11 @@ public sealed class PrefabRef
 {
     /// <summary>
     /// Prefab content id, e.g. <c>void:oak_small</c>. JSON key <c>prefab</c>.
-    /// Not resolved at biome load time — the prefab registry lands in VOID-024;
-    /// see <c>BiomeRegistryLoader.ValidateDeferredReferences</c>.
+    /// Not resolved at biome load time. The prefab registry exists
+    /// (<see cref="PrefabRegistryLoader"/>, VOID-024), but the boot sequence
+    /// that would hand it to the biome loader is VOID-025, so these refs still
+    /// dangle until then; see
+    /// <c>BiomeRegistryLoader.ValidateDeferredReferences</c>.
     /// </summary>
     public string Prefab { get; init; } = string.Empty;
 
