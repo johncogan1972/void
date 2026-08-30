@@ -1,6 +1,6 @@
 # World Data Model — Feature Spec
 
-**Version:** 0.2
+**Version:** 0.3
 **Status:** Draft
 **Companion to:** world-generation-spec.md (§5, §6, §10)
 
@@ -94,7 +94,10 @@ One manifest file per world (home or portal), stored at the world's root save di
 **Manifest fields:**
 
 ```yaml
-# Illustrative — actual serialisation format TBD (JSON or binary)
+# Serialised as plain JSON inside the save envelope, which supplies zstd,
+# obfuscation and the integrity hash (§9.1, save-format-spec §4). Field order is
+# pinned so two saves diff line-for-line, and nulls are written rather than
+# skipped — an explicit null is a value, a missing field is a corrupt file.
 world_id             : UUID          # unique per world instance
 world_type           : string        # "home", "portal_scorched", "portal_sunken", etc.
 seed                 : int64         # the world's generation seed
@@ -226,17 +229,21 @@ weight               : float              # relative probability when generator 
 Biomes drive generation choices per world region. One biome definition per biome type.
 
 ```yaml
-biome_id             : string             # e.g. "forest_grassland"
+id                   : string             # e.g. "void:meadow" — the registry key (§7)
 display_name         : string             # for UI / debug
 layer_category       : string             # "surface", "underground", "deep", "void"
 
-# Tile palette
+# Tile palette — string content ids, resolved through the block and wall
+# registries at load. Not the raw uint16 that tile records store: a biome is
+# authored content, and an author writing "void:grass" cannot silently name the
+# wrong block the way a number can. The loader fails loudly on an id that does
+# not resolve, which a number could never do.
 palette:
-  surface_block      : uint16             # top layer (grass, sand, snow)
-  subsurface_block   : uint16             # layer just below surface
-  base_block         : uint16             # bulk fill for the layer
-  wall_default       : uint16
-  wall_ambient       : uint16[]           # variations used stochastically
+  surface_block      : string             # top layer (grass, sand, snow)
+  subsurface_block   : string             # layer just below surface
+  base_block         : string             # bulk fill for the layer
+  wall_default       : string
+  wall_ambient       : string[]           # variations used stochastically
 
 # Vegetation & decoration
 vegetation:
@@ -244,10 +251,13 @@ vegetation:
   plants             : PrefabRef[]
   decorations        : PrefabRef[]
 
-# Ore biases — multipliers applied to base ore distribution
+# Ore biases — multipliers applied to base ore distribution. Keyed by ore
+# content id. An ore not listed multiplies by 1.0: unbiased, never "absent".
+# Iteration is ordinal-sorted by key, because this feeds generation and a
+# hash-ordered map would make output depend on authoring order (§8).
 ore_biases:
-  copper             : float
-  iron               : float
+  void:copper        : float
+  void:iron          : float
   # ... per ore type
 
 # Enemy spawn pool
@@ -257,7 +267,7 @@ enemies:
     time_of_day      : string             # "any", "day", "night"
 
 # Underground variant reference (surface biomes only)
-underground_variant  : string             # biome_id of the matching underground biome, or null
+underground_variant  : string             # id of the matching underground biome, or null
 
 # Ambient
 ambient:
@@ -272,6 +282,8 @@ hazards:
 ```
 
 **Surface / underground pairing:** each surface biome names its `underground_variant`. The underground layer generator reads the surface biome column-by-column and places the matching underground biome directly below. Handles biome transitions cleanly (surface transitions from forest to desert → underground transitions in the same columns).
+
+**Loading is a two-step, and the first step proves nothing.** A biome names blocks, walls and another biome, so a document that parses cleanly can still resolve to nothing. Biome definitions are therefore marked `ICrossRegistryValidated` and the generic `RegistryLoader` refuses them: they load only through `BiomeRegistryLoader`, which takes the registries they reference and fails loudly on an id that does not resolve, on an `underground_variant` naming a biome that does not exist, and on one whose target is not `layer_category: underground`. Prefab and enemy ids are the exception — those registries do not exist yet, so their check is deferred to `ValidateDeferredReferences` rather than skipped.
 
 ## 7. Data Registries
 
