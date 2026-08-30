@@ -5,12 +5,14 @@ using Void;
 namespace Void.Tests;
 
 /// <summary>
-/// Locates and loads the <b>shipped</b> content tree for VOID-023's tests.
+/// Locates and loads the <b>shipped</b> content tree for the content tests
+/// (VOID-023, VOID-024).
 ///
 /// Tests must exercise the real <c>data/</c> files rather than a copy: the whole
-/// point of the item, enemy and loot table registries is that block drops and
-/// biome spawn pools resolve against what actually ships, and a copied fixture
-/// would let the shipped file rot without anything going red.
+/// point of the item, enemy, loot table and prefab registries is that block
+/// drops, biome spawn pools and prefab tile data resolve against what actually
+/// ships, and a copied fixture would let the shipped file rot without anything
+/// going red.
 /// </summary>
 internal static class ContentPaths
 {
@@ -54,4 +56,20 @@ internal static class ContentPaths
     /// <summary>The shipped enemies, validated against the shipped loot tables.</summary>
     public static Registry<EnemyDefinition> Enemies() =>
         EnemyRegistryLoader.Load(Source("enemies"), LootTables());
+
+    /// <summary>The shipped blocks. Numeric ids only; references nothing.</summary>
+    public static Registry<BlockDefinition> Blocks() =>
+        RegistryLoader.Load<BlockDefinition>(Source("blocks"));
+
+    /// <summary>The shipped walls. Numeric ids only; references nothing.</summary>
+    public static Registry<WallDefinition> Walls() =>
+        RegistryLoader.Load<WallDefinition>(Source("walls"));
+
+    /// <summary>
+    /// The shipped prefabs, validated against the shipped blocks and walls.
+    /// Loaded through <see cref="PrefabRegistryLoader"/> on purpose: the tile
+    /// arrays hold raw numeric ids, so nothing else proves they resolve.
+    /// </summary>
+    public static Registry<PrefabDefinition> Prefabs() =>
+        PrefabRegistryLoader.Load(Source("prefabs"), Blocks(), Walls());
 }

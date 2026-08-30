@@ -27,7 +27,7 @@ Numeric ids (`blocks/`, `walls/`):
 - `block_id = 0` (air) and `wall_id = 0` (no wall) are real registry entries,
   not absences.
 
-Cross-registry entries (`biomes/`, `loot_tables/`, `enemies/`):
+Cross-registry entries (`biomes/`, `loot_tables/`, `enemies/`, `prefabs/`):
 
 - A biome names blocks, walls and another biome, so parsing its JSON proves
   nothing about whether those ids resolve. Its definition is marked
@@ -40,12 +40,17 @@ Cross-registry entries (`biomes/`, `loot_tables/`, `enemies/`):
 - An enemy names one loot table, so it loads through
   `EnemyRegistryLoader.Load` (loot tables first). A dangling `loot_table_id` is
   fatal; `null` is legal and means "drops nothing".
+- A prefab's `block_ids` / `wall_ids` are raw numbers, so it loads through
+  `PrefabRegistryLoader.Load` (blocks and walls first). A tile array whose
+  length is not `width * height`, a marker outside the footprint, and a numeric
+  id that does not resolve are all fatal — each one stamps a scrambled or
+  hollow structure into the world with no error anywhere downstream.
 - Load order is therefore: blocks + walls → items → loot tables → enemies →
-  biomes.
+  prefabs → biomes.
 - Prefab and enemy ids in a biome still dangle **at load**.
   `BiomeRegistryLoader.ValidateDeferredReferences` is written and fatal on a
-  dangling ref, but nothing calls it yet — prefabs land in VOID-024, and the
-  boot sequence that would pass both registries to it is VOID-025. Until then
+  dangling ref, but nothing calls it yet: both registries now exist, and the
+  boot sequence that would pass them to it is VOID-025. Until then
   the only thing holding those refs honest is a test asserting that every
   `enemy_id` in `biomes/` exists in `enemies/`.
 
@@ -55,5 +60,5 @@ carries no health, damage or AI — that is Phase 9. Fields are added when their
 meaning is settled, never guessed ahead of time.
 
 Current registries: `blocks/`, `walls/` (VOID-018), `biomes/` (VOID-022),
-`items/`, `enemies/`, `loot_tables/` (VOID-023). The VOID-006 `example/` folder
-is gone — the real registries prove the loader now.
+`items/`, `enemies/`, `loot_tables/` (VOID-023), `prefabs/` (VOID-024). The
+VOID-006 `example/` folder is gone — the real registries prove the loader now.
