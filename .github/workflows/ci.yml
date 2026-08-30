@@ -1,7 +1,7 @@
 # Verification ladder on every push (VOID-008).
 #
 # Runs tests/check.sh --strict: parse, lint, build, cstest, import, smoke,
-# gdtest. Strict mode turns a SKIP into a FAIL, because rung 2 skips without
+# gdtest, export. Strict mode turns a SKIP into a FAIL, because rung 2 skips without
 # gdlint and rungs 3/4 skip without dotnet -- without it the ladder could go
 # green having checked almost nothing.
 #

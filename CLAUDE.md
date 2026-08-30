@@ -145,7 +145,7 @@ Open only what the task needs. Descriptions are the summary — use them to deci
 Project root: /run/media/system/Game_Drive_Two/gamedev/godot-projects/void
 Always pass --path explicitly; never rely on cwd. Godot 4.7.
 
-- Verify all:    tests/check.sh            (parse, lint, build, cstest, import, smoke, gdtest)
+- Verify all:    tests/check.sh            (parse, lint, build, cstest, import, smoke, gdtest, export)
 - Verify some:   tests/check.sh 1 2        (rung numbers; exits with failing rung)
 - As CI runs it: tests/check.sh --strict   (a SKIP becomes a FAIL)
 - Parse check:   godot --headless --path <root> --check-only --script res://path/to.gd
@@ -166,6 +166,10 @@ Rules:
 - `src/BuildInfo.cs` proves the C# assembly loads. Delete it once real C# exists.
 - `Void.Tests/HarnessTests.cs` proves the xunit harness reaches the game assembly.
   Delete it once real C# tests exist.
+- Rung 8 (export) builds a real .pck and reads `data/**/*.json` back out of it.
+  Every other rung reads the loose files off disk, so only this one can catch
+  content that an export would drop. It needs no export templates, but it does
+  need `export_presets.cfg` — which is tracked, deliberately (VOID-013).
 - A SKIP is not a PASS. Rungs 2/3/4 skip when their tool is missing. `--strict`
   (or `CHECK_STRICT=1`) turns those skips into failures; CI always uses it.
 - Godot must be the .NET build (`godot --version` shows `.mono`), or rung 3 output
