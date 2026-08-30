@@ -1,0 +1,88 @@
+[
+  // Biome ids are stable forever: saved worlds and campaign manifests reference
+  // biomes by string id, so retire ids, never repurpose them. Every block, wall
+  // and biome id named below must resolve — BiomeRegistryLoader fails the load
+  // otherwise. Prefab and enemy ids are allowed to dangle until VOID-024 and
+  // VOID-023 land their registries.
+  {
+    "id": "void:meadow",
+    "display_name": "Meadow",
+    "layer_category": "surface",
+    "palette": {
+      "surface_block": "void:grass",
+      "subsurface_block": "void:dirt",
+      "base_block": "void:stone",
+      "wall_default": "void:dirt_wall",
+      // biome-content-spec §8 suggests mossy and rooted dirt wall variants;
+      // neither exists in data/walls/walls.json yet, so this stays empty rather
+      // than inventing wall entries.
+      "wall_ambient": []
+    },
+    "vegetation": {
+      "trees": [
+        { "prefab": "void:oak_small", "weight": 0.5 },
+        { "prefab": "void:oak_medium", "weight": 0.3 },
+        { "prefab": "void:oak_large", "weight": 0.2 }
+      ],
+      "plants": [
+        { "prefab": "void:wildflower_yellow", "weight": 0.4 }
+      ],
+      "decorations": [
+        { "prefab": "void:grass_tall", "weight": 1.0 }
+      ]
+    },
+    // Ores not listed here generate at their base rate (multiplier 1.0).
+    "ore_biases": {
+      "void:copper": 1.2,
+      "void:iron": 0.9
+    },
+    "enemies": [
+      { "enemy_id": "void:rabbit", "weight": 0.6, "time_of_day": "day" },
+      { "enemy_id": "void:deer", "weight": 0.3, "time_of_day": "day" },
+      { "enemy_id": "void:grey_wolf", "weight": 0.4, "time_of_day": "night" },
+      { "enemy_id": "void:small_skeleton", "weight": 0.3, "time_of_day": "night" }
+    ],
+    "underground_variant": "void:root_hollows",
+    // Ambient is post-MVP in full; nothing reads these yet.
+    "ambient": {
+      "music_theme": null,
+      "particle_effect": null,
+      "light_tint": null
+    },
+    // Hazards are portal-world only.
+    "hazards": []
+  },
+  {
+    // biome-content-spec §4: Meadow's underground variant — dirt tunnels,
+    // tree-root walls, copper ore common.
+    "id": "void:root_hollows",
+    "display_name": "Root Hollows",
+    "layer_category": "underground",
+    "palette": {
+      "surface_block": "void:dirt",
+      "subsurface_block": "void:dirt",
+      "base_block": "void:stone",
+      "wall_default": "void:dirt_wall",
+      "wall_ambient": ["void:stone_wall"]
+    },
+    "vegetation": {
+      "trees": [],
+      "plants": [],
+      "decorations": []
+    },
+    "ore_biases": {
+      "void:copper": 1.4
+    },
+    "enemies": [
+      { "enemy_id": "void:cave_beetle", "weight": 0.5, "time_of_day": "any" }
+    ],
+    // Underground biomes are the pairing target, never the source.
+    "underground_variant": null,
+    "ambient": {
+      "music_theme": null,
+      "particle_effect": null,
+      "light_tint": null
+    },
+    "hazards": []
+  }
+]
