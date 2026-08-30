@@ -59,15 +59,16 @@ public class BiomeDefinitionTests : IDisposable
         throw new InvalidOperationException("Could not locate the repository root from " + AppContext.BaseDirectory);
     }
 
-    /// <summary>Loads the shipped block registry from <c>data/blocks</c>.</summary>
-    private static Registry<BlockDefinition> ShippedBlocks() =>
-        RegistryLoader.Load<BlockDefinition>(
-            new DirectoryContentSource(Path.Combine(RepoRoot(), "data", "blocks")));
+    /// <summary>
+    /// The shipped block and wall registries, taken from the real boot load
+    /// (VOID-025) rather than loaded again here. A second chain over the same
+    /// files would be a path that can drift from the one the game actually
+    /// boots, which is the whole thing <c>ContentPaths</c> exists to prevent.
+    /// </summary>
+    private static Registry<BlockDefinition> ShippedBlocks() => ContentPaths.Blocks();
 
-    /// <summary>Loads the shipped wall registry from <c>data/walls</c>.</summary>
-    private static Registry<WallDefinition> ShippedWalls() =>
-        RegistryLoader.Load<WallDefinition>(
-            new DirectoryContentSource(Path.Combine(RepoRoot(), "data", "walls")));
+    /// <inheritdoc cref="ShippedBlocks"/>
+    private static Registry<WallDefinition> ShippedWalls() => ContentPaths.Walls();
 
     /// <summary>Loads the temp root as biomes, validated against the shipped blocks and walls.</summary>
     private Registry<BiomeDefinition> LoadTempBiomes() =>
@@ -124,10 +125,7 @@ public class BiomeDefinitionTests : IDisposable
     [Fact]
     public void ShippedBiomesLoadAndCarryEveryAuthoredField()
     {
-        Registry<BiomeDefinition> biomes = BiomeRegistryLoader.Load(
-            new DirectoryContentSource(Path.Combine(RepoRoot(), "data", "biomes")),
-            ShippedBlocks(),
-            ShippedWalls());
+        Registry<BiomeDefinition> biomes = ContentPaths.Biomes();
 
         Assert.Equal(2, biomes.Count);
         Assert.Equal(new[] { "void:meadow", "void:root_hollows" }, biomes.Ids);
@@ -141,9 +139,13 @@ public class BiomeDefinitionTests : IDisposable
         Assert.Equal("void:dirt_wall", meadow.Palette.WallDefault);
         Assert.Empty(meadow.Palette.WallAmbient);
         Assert.Equal("void:root_hollows", meadow.UndergroundVariant);
-        Assert.Equal(3, meadow.Vegetation.Trees.Count);
-        Assert.Equal("void:oak_small", meadow.Vegetation.Trees[0].Prefab);
-        Assert.Equal(0.5f, meadow.Vegetation.Trees[0].Weight);
+        // Emptied in VOID-025 because the oak/flower/grass prefabs it named do
+        // not exist yet and boot now validates the refs; VOID-026 restores them
+        // with the real prefabs. Asserted rather than ignored so re-adding a ref
+        // has to come with the prefab.
+        Assert.Empty(meadow.Vegetation.Trees);
+        Assert.Empty(meadow.Vegetation.Plants);
+        Assert.Empty(meadow.Vegetation.Decorations);
         Assert.Equal(1.2f, meadow.OreBiases.Multiplier("void:copper"));
         Assert.Equal(0.9f, meadow.OreBiases.Multiplier("void:iron"));
         Assert.Equal(4, meadow.Enemies.Count);
@@ -214,10 +216,7 @@ public class BiomeDefinitionTests : IDisposable
     [Fact]
     public void RoundTripIsByteIdentical()
     {
-        Registry<BiomeDefinition> biomes = BiomeRegistryLoader.Load(
-            new DirectoryContentSource(Path.Combine(RepoRoot(), "data", "biomes")),
-            ShippedBlocks(),
-            ShippedWalls());
+        Registry<BiomeDefinition> biomes = ContentPaths.Biomes();
 
         foreach (BiomeDefinition biome in biomes)
         {
@@ -351,23 +350,58 @@ public class BiomeDefinitionTests : IDisposable
     [Fact]
     public void DeferredReferenceValidationIsFatalOnDanglingRefs()
     {
-        Registry<BiomeDefinition> biomes = BiomeRegistryLoader.Load(
-            new DirectoryContentSource(Path.Combine(RepoRoot(), "data", "biomes")),
-            ShippedBlocks(),
-            ShippedWalls());
+        // The vegetation half uses a fixture, not the shipped file: no shipped
+        // biome names a prefab any more (VOID-025 emptied meadow's lists), and
+        // the check must stay proven regardless of what content happens to hold.
+        WriteFile("biomes.json", $$"""
+            [{
+              "id": "test:grove",
+              "display_name": "Grove",
+              "layer_category": "surface",
+              "palette": {
+                "surface_block": "void:grass",
+                "subsurface_block": "void:dirt",
+                "base_block": "void:stone",
+                "wall_default": "void:dirt_wall",
+                "wall_ambient": []
+              },
+              "vegetation": {
+                "trees": [{ "prefab": "test:missing_oak", "weight": 1.0 }],
+                "plants": [],
+                "decorations": []
+              },
+              "underground_variant": null
+            }]
+            """);
+
+        // Vegetation refs parse into PrefabRef before they are ever resolved, and
+        // this is now the only fixture in the suite carrying one: the shipped
+        // meadow lists were emptied until VOID-026 authors real prefabs. Assert
+        // the parsed shape here, or `weight` could silently bind to 0 and every
+        // restored vegetation entry would be unselectable with nothing red.
+        PrefabRef tree = Assert.Single(LoadTempBiomes()["test:grove"].Vegetation.Trees);
+        Assert.Equal("test:missing_oak", tree.Prefab);
+        Assert.Equal(1.0f, tree.Weight);
 
         ContentLoadException prefabEx = Assert.Throws<ContentLoadException>(
-            () => BiomeRegistryLoader.ValidateDeferredReferences(biomes, Array.Empty<string>(), Array.Empty<string>()));
+            () => BiomeRegistryLoader.ValidateDeferredReferences(
+                LoadTempBiomes(), Array.Empty<string>(), Array.Empty<string>()));
         Assert.Contains("prefab", prefabEx.Message, StringComparison.Ordinal);
+        Assert.Contains("test:missing_oak", prefabEx.Message, StringComparison.Ordinal);
+        Assert.Contains("test:grove", prefabEx.Message, StringComparison.Ordinal);
 
-        string[] prefabs = biomes
+        Registry<BiomeDefinition> shipped = ContentPaths.Biomes();
+
+        string[] prefabs = shipped
             .SelectMany(static b => b.Vegetation.Trees.Concat(b.Vegetation.Plants).Concat(b.Vegetation.Decorations))
             .Select(static p => p.Prefab)
             .ToArray();
 
         ContentLoadException enemyEx = Assert.Throws<ContentLoadException>(
-            () => BiomeRegistryLoader.ValidateDeferredReferences(biomes, prefabs, Array.Empty<string>()));
+            () => BiomeRegistryLoader.ValidateDeferredReferences(shipped, prefabs, Array.Empty<string>()));
         Assert.Contains("enemy", enemyEx.Message, StringComparison.Ordinal);
+        Assert.Contains("void:meadow", enemyEx.Message, StringComparison.Ordinal);
+        Assert.Contains("void:rabbit", enemyEx.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -377,10 +411,7 @@ public class BiomeDefinitionTests : IDisposable
     [Fact]
     public void DeferredReferenceValidationPassesWhenRefsResolve()
     {
-        Registry<BiomeDefinition> biomes = BiomeRegistryLoader.Load(
-            new DirectoryContentSource(Path.Combine(RepoRoot(), "data", "biomes")),
-            ShippedBlocks(),
-            ShippedWalls());
+        Registry<BiomeDefinition> biomes = ContentPaths.Biomes();
 
         string[] prefabs = biomes
             .SelectMany(static b => b.Vegetation.Trees.Concat(b.Vegetation.Plants).Concat(b.Vegetation.Decorations))

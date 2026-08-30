@@ -77,10 +77,7 @@ public class EnemyDefinitionTests : IDisposable
     public void EveryShippedBiomeSpawnResolvesToAnEnemy()
     {
         Registry<EnemyDefinition> enemies = ContentPaths.Enemies();
-        Registry<BiomeDefinition> biomes = BiomeRegistryLoader.Load(
-            ContentPaths.Source("biomes"),
-            RegistryLoader.Load<BlockDefinition>(ContentPaths.Source("blocks")),
-            RegistryLoader.Load<WallDefinition>(ContentPaths.Source("walls")));
+        Registry<BiomeDefinition> biomes = ContentPaths.Biomes();
 
         foreach (BiomeDefinition biome in biomes)
         {

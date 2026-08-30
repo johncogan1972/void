@@ -15,6 +15,12 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 run/main_scene="res://scenes/main_menu.tscn"
 config/icon="res://icon.svg"
 
+[autoload]
+
+; Loads every content registry before the main scene exists (VOID-025). Must
+; stay first in this list: nothing else in the game is meaningful without it.
+ContentBoot="*res://src/Content/ContentBoot.cs"
+
 [display]
 
 window/stretch/mode="canvas_items"
