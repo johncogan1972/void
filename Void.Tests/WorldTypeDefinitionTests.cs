@@ -192,4 +192,44 @@ public class WorldTypeDefinitionTests
     {
         Assert.False(typeof(ICrossRegistryValidated).IsAssignableFrom(typeof(WorldTypeDefinition)));
     }
+
+    /// <summary>
+    /// When a world type has both a zero-height layer at one preset and an
+    /// unusable heightmap band at another, the layer-geometry error must win.
+    /// <see cref="WorldTypeRegistryLoader"/> runs <c>CheckSurfaceBandFits</c> in
+    /// a deliberate second pass, after every preset's zero-height check, so an
+    /// author with a broken proportion split is not sent to re-tune a heightmap
+    /// that was never the actual problem. This world type fails both checks:
+    /// "small" has a zero-row outside layer, and the heightmap's inverted
+    /// fractions (top 0.80 > bottom 0.45) are unusable at every preset. Only
+    /// the geometry failure should surface.
+    /// </summary>
+    [Fact]
+    public void LayerGeometryErrorsReportBeforeHeightmapTuningErrors()
+    {
+        const string Json = """
+            {
+              "id": "test:world",
+              "display_name": "Test World",
+              "layer_proportions": {
+                "outside": 0.0005, "underground": 0.5495, "deep": 0.30, "void": 0.15
+              },
+              "heightmap": {
+                "octaves": 4, "frequency": 0.001, "lacunarity": 2.0, "persistence": 0.5,
+                "surface_top_fraction": 0.80, "surface_bottom_fraction": 0.45,
+                "max_column_delta": 3
+              },
+              "size_preset": "large",
+              "size_presets": [
+                { "id": "large", "width_tiles": 8400, "height_tiles": 2400 },
+                { "id": "small", "width_tiles": 4200, "height_tiles": 1200 }
+              ]
+            }
+            """;
+
+        ContentLoadException ex = Assert.Throws<ContentLoadException>(() => Load(Json));
+
+        Assert.Contains("zero rows", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("unusable", ex.Message, StringComparison.Ordinal);
+    }
 }

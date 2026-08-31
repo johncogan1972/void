@@ -249,6 +249,9 @@ public class HeightmapTests
     [InlineData(4, 0.80, 0.45)]    // band bounds inverted
     [InlineData(4, 0.45, 1.50)]    // band runs past the Outside layer
     [InlineData(4, 0.4500, 0.4501)] // band too thin to shape terrain in
+    [InlineData(4, -0.10, 0.80)]   // top fraction negative -- must fail like every other out-of-(0,1) fraction
+    [InlineData(4, 1.10, 1.50)]    // top fraction >= 1 -- would leave no sky above the surface at all
+    [InlineData(4, 0.50, 0.50)]    // top equals bottom exactly -- a single-row band, not the strictly-inverted case above
     public void InvalidHeightmapConfigIsRejectedAtLoad(int octaves, double top, double bottom)
     {
         Assert.Throws<ContentLoadException>(
@@ -263,5 +266,58 @@ public class HeightmapTests
         GenerationContext context = new(ContentWithWorldType(json), "test:world", 2024);
         WorldGenerator.Generate(context, TestWorldId);
         return context.Heightmap.ToArray();
+    }
+
+    /// <summary>
+    /// max_column_delta is validated at boot the same way octaves are: a value
+    /// of 0 parses fine as JSON and would flatten the whole world to a single
+    /// row (see <see cref="HeightmapConfig.MaxColumnDelta"/>). The existing
+    /// invalid-config theory only varies octaves and band fractions, so this
+    /// specific field was never actually exercised at load time.
+    /// </summary>
+    [Fact]
+    public void MaxColumnDeltaOfZeroIsRejectedAtLoad()
+    {
+        Assert.Throws<ContentLoadException>(
+            () => WorldTypeRegistryLoader.Load(
+                new InMemoryContentSource(WorldTypeJson(maxColumnDelta: 0))));
+    }
+
+    /// <summary>
+    /// A band of exactly <see cref="SurfaceBand.MinimumRows"/> must be accepted,
+    /// not just rejected one row below it. The shipped theory only proves the
+    /// "too thin" side of the boundary; without this, an off-by-one that moved
+    /// the cutoff to 9 rows would ship without a single red test.
+    /// </summary>
+    [Fact]
+    public void SurfaceBandOfExactlyTheMinimumRowCountIsAccepted()
+    {
+        // Outside layer at "medium" is 540 rows (0.30 * 1800). floor(540*0.10)=54,
+        // floor(540*0.113)=61, an inclusive span of 8 rows -- SurfaceBand.MinimumRows exactly.
+        Registry<WorldTypeDefinition> loaded = WorldTypeRegistryLoader.Load(
+            new InMemoryContentSource(WorldTypeJson(topFraction: 0.10, bottomFraction: 0.113)));
+
+        Assert.True(loaded.Contains("test:world"));
+    }
+
+    /// <summary>
+    /// The heightmap's RNG sub-stream is keyed by a fixed <see cref="GenKeys"/>
+    /// constant, never by world identity. If a future change threaded the world
+    /// id into the stream derivation, re-loading the same save (same seed, same
+    /// world id assigned once at creation) would still match -- but two calls
+    /// with the *same seed and different ids*, which is what a "new world,
+    /// re-rolled seed" flow can do, would silently diverge. This pins the
+    /// contract that only the seed decides the terrain.
+    /// </summary>
+    [Fact]
+    public void HeightmapDoesNotDependOnWorldIdentity()
+    {
+        GenerationContext contextA = new(ContentPaths.All(), "void:home", 55);
+        GenerationContext contextB = new(ContentPaths.All(), "void:home", 55);
+
+        WorldGenerator.Generate(contextA, new Guid("11111111-1111-1111-1111-111111111111"));
+        WorldGenerator.Generate(contextB, new Guid("22222222-2222-2222-2222-222222222222"));
+
+        Assert.Equal(contextA.Heightmap.ToArray(), contextB.Heightmap.ToArray());
     }
 }
