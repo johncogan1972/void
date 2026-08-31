@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sample authored prefab for the Tiled converter (VOID-026). This .tmx is the
+     source of truth; data/prefabs/generated/ruin_stone_small.json is its
+     committed output. Edit here, then regenerate with the tmx-convert command
+     of Void.Tools (see content/tiled/README.md).
+     Layer format must stay CSV, and the marker objects are deliberately saved
+     out of reading order to prove the converter sorts them. -->
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="7" height="5" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="4">
+ <properties>
+  <property name="category" value="ruin"/>
+  <property name="constraint_allowed_layers" value="surface,underground"/>
+  <property name="constraint_clearance_above" type="int" value="2"/>
+  <property name="constraint_min_spacing_any_category" type="int" value="16"/>
+  <property name="constraint_min_spacing_same_category" type="int" value="48"/>
+  <property name="constraint_requires_ground" type="bool" value="true"/>
+  <property name="prefab_id" value="void:ruin_stone_small_tiled"/>
+  <property name="weight" type="float" value="0.75"/>
+ </properties>
+ <tileset firstgid="1" source="ruin_tiles.tsx"/>
+ <layer id="1" name="blocks" width="7" height="5">
+  <data encoding="csv">
+1,1,1,1,1,1,1,
+1,0,0,0,0,0,1,
+2,0,0,0,0,0,2,
+1,0,0,0,0,0,1,
+1,1,1,0,1,1,1
+</data>
+ </layer>
+ <layer id="2" name="walls" width="7" height="5">
+  <data encoding="csv">
+1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,
+1,1,1,0,1,1,1
+</data>
+ </layer>
+ <objectgroup id="3" name="markers">
+  <object id="1" class="entrance" x="48" y="64" width="16" height="16">
+   <properties>
+    <property name="facing" value="south"/>
+   </properties>
+  </object>
+  <object id="2" class="chest" x="16" y="48" width="16" height="16">
+   <properties>
+    <property name="locked" type="bool" value="false"/>
+    <property name="loot_table_id" value="void:cave_beetle_loot"/>
+    <property name="tier" type="int" value="2"/>
+   </properties>
+  </object>
+  <object id="3" class="spawner" x="80" y="16" width="16" height="16">
+   <properties>
+    <property name="enemy_id" value="void:rabbit"/>
+    <property name="interval_seconds" type="float" value="30.5"/>
+   </properties>
+  </object>
+ </objectgroup>
+</map>

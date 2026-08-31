@@ -1,0 +1,22 @@
+{
+  // GID mapping for the Tiled prefab converter (VOID-026), read by
+  // Void.TilesetMap. Keyed by tileset NAME and LOCAL tile id (gid - firstgid),
+  // never by global id: a global id depends on the order tilesets happen to be
+  // attached to a map, so keying on it would silently repoint every tile the
+  // first time an author inserts a tileset.
+  //
+  // "block_ids" resolves the 'blocks' layer, "wall_ids" the 'walls' layer - the
+  // same drawn tile means void:stone in one and void:stone_wall in the other,
+  // and the two registries number independently. Values must resolve in
+  // data/blocks and data/walls or PrefabRegistryLoader fails the boot.
+  //
+  // Tiled's empty tile is gid 0 and needs no entry: the converter maps it to 0
+  // (void:air / void:no_wall) before any lookup here.
+  "tilesets": {
+    "ruin_tiles": {
+      // local 0 = stone, local 1 = wood.
+      "block_ids": { "0": 2, "1": 5 },
+      "wall_ids": { "0": 2, "1": 3 }
+    }
+  }
+}

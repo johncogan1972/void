@@ -8,9 +8,13 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
-  <!-- Godot.NET.Sdk globs **/*.cs; the test project is built separately. -->
+  <!-- Godot.NET.Sdk globs **/*.cs; the test project and the author-facing
+       command-line tooling are built separately. Void.Tools must be removed as
+       well as excluded from the solution build: leaving it in would pull its
+       Program.Main into the game assembly. -->
   <ItemGroup>
     <Compile Remove="Void.Tests/**" />
+    <Compile Remove="Void.Tools/**" />
   </ItemGroup>
 
   <ItemGroup>

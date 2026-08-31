@@ -1,0 +1,129 @@
+// GENERATED FILE - do not hand-edit.
+// Converted from content/tiled/ruin_stone_small.tmx by Void.Tools tmx-convert (VOID-026).
+// Edit the .tmx in Tiled and regenerate; a stale file fails Void.Tests.
+{
+  "prefab_id": "void:ruin_stone_small_tiled",
+  "category": "ruin",
+  "dimensions": {
+    "width": 7,
+    "height": 5
+  },
+  "constraints": {
+    "allowed_biomes": [],
+    "allowed_layers": [
+      "surface",
+      "underground"
+    ],
+    "requires_ground": true,
+    "requires_cavern": false,
+    "min_spacing": {
+      "same_category": 48,
+      "any_category": 16
+    },
+    "clearance_above": 2
+  },
+  "block_ids": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    2,
+    2,
+    2,
+    0,
+    2,
+    2,
+    2
+  ],
+  "wall_ids": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    0,
+    2,
+    2,
+    2
+  ],
+  "markers": [
+    {
+      "type": "spawner",
+      "x": 5,
+      "y": 1,
+      "metadata": {
+        "enemy_id": "void:rabbit",
+        "interval_seconds": 30.5
+      }
+    },
+    {
+      "type": "chest",
+      "x": 1,
+      "y": 3,
+      "metadata": {
+        "locked": false,
+        "loot_table_id": "void:cave_beetle_loot",
+        "tier": 2
+      }
+    },
+    {
+      "type": "entrance",
+      "x": 3,
+      "y": 4,
+      "metadata": {
+        "facing": "south"
+      }
+    }
+  ],
+  "weight": 0.75
+}
