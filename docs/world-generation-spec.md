@@ -1,6 +1,6 @@
 # World Generation — Feature Spec
 
-**Version:** 0.4
+**Version:** 0.5
 **Status:** Draft
 **Companion to:** GDD §3, §4
 **Sub-specs:** `world-data-model-spec.md`, `cave-generation-spec.md`
@@ -269,6 +269,35 @@ Recap of GDD §3.2 — enforced across all generation code:
 - Fixed-point / integer math where FP would drift
 - Parallel generation must produce identical output regardless of thread scheduling
 - CI check: regenerate reference seed and hash the resulting world
+
+### 14.1 Floating-Point Determinism (resolved, VOID-045)
+
+MVP targets x86-64 Windows and Linux only. **Decision: noise and world-gen maths
+use IEEE-754 `double` throughout; fixed-point is not required.** .NET specifies
+IEEE-754 semantics, and on x86-64 the four basic operations (add, subtract,
+multiply, divide) are correctly rounded and therefore bit-identical across both
+target platforms and across runtime versions.
+
+The reproducibility hazards are not the basic arithmetic, so the decision comes
+with rules that generation code must follow:
+
+- **No transcendental libm calls in any sampling or generation path** — no
+  `Math.Pow`, `Sin`, `Cos`, `Exp`, `Log`, `Sqrt`. These are not required to be
+  correctly rounded and do differ between platforms and runtime versions.
+  Octave frequency and amplitude stepping uses iterative multiplication, never
+  `Math.Pow(lacunarity, octave)`. Irrational constants (1/sqrt(2), sqrt(2)) are
+  written as literals, not computed.
+- **`double` only** — no `float`, no `MathF`. A single-precision intermediate
+  introduces widening behaviour that need not match.
+- **No fused multiply-add** — `Math.FusedMultiplyAdd` and FMA-contracting
+  intrinsics skip an intermediate rounding and change results.
+- `Math.Floor`, `Math.Abs`, `Math.Clamp`, `Math.Min`/`Max` are exact and allowed.
+- Integer or exact-power-of-two stepping is preferred wherever it is natural.
+
+Revisit this if the target set ever includes a platform without correctly-rounded
+hardware doubles; at that point fixed-point becomes the answer. Reference
+implementation and the same decision in code form:
+`src/Noise/PerlinNoise.cs`, `src/Noise/FbmNoise.cs`.
 
 ## 15. Resolved Design Decisions
 
