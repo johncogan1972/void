@@ -6,13 +6,25 @@ namespace Void;
 /// Owns the ordering of the five generation phases and produces the world's
 /// <see cref="WorldManifest"/> (VOID-046, world-generation-spec §6).
 ///
-/// <para>Only Phase 1's structural steps exist today — dimensions, layer
+/// <para>Only Phase 1's structural steps run here — dimensions, layer
 /// boundaries, the surface heightmap and the surface biome map. The phase
 /// ordering and the sub-stream convention are the point of this scaffold: every
 /// later phase derives its own stream from
 /// <see cref="GenerationContext.Stream"/> using a <see cref="GenKeys"/> constant,
 /// so phases can be written, reordered or run in isolation without changing what
 /// any other phase generates.</para>
+///
+/// <para><b>Phase 2 step 5, terrain materialisation, exists but is not run
+/// here</b> (VOID-056). It is not missing and it is not optional — it is
+/// <i>pull-based</i>. <see cref="TerrainMaterializer.MaterializeChunk"/> is a
+/// pure function of the chunk coordinate, so the caller materialises the chunks
+/// it wants, when it wants them; chunk streaming and the world viewer need a
+/// handful at a time, and a Medium world is 2,900 chunks and about 92 MB of tile
+/// data that nothing should be made to hold. This method returns a
+/// <see cref="WorldManifest"/>, which has nowhere to put them and should not
+/// grow one. What <see cref="Generate"/> guarantees is that the phase output
+/// materialisation reads — the heightmap and the biome map — is on the context
+/// before any caller can ask for a chunk.</para>
 ///
 /// <para><b>Deterministic.</b> Given the same content, seed, world type and size
 /// preset this produces byte-identical output — no clock, no
@@ -83,7 +95,7 @@ public static class WorldGenerator
             Dimensions = dimensions,
             LayerBoundaries = boundaries,
 
-            // Populated by phase 4 (spec §6, steps 11 and 12); placeholders
+            // Populated by phase 4 (spec §6, steps 12 and 13); placeholders
             // until then. They are required members of the manifest, so they
             // must hold *something* — these values are deliberately not
             // plausible spawn output: row 0 is the top of the sky, and the lair

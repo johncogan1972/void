@@ -174,6 +174,13 @@
       "wall_default": "void:ice_wall",
       "wall_ambient": []
     },
+    // Rows of ice under the snow, overriding the world type's default of 4
+    // (VOID-056). A snowpack over glacial ice is genuinely a deeper band than
+    // topsoil over stone, and the extra rows are what stop a shallow cave from
+    // opening straight through the ice into bare stone. Every other shipped
+    // biome omits this key and takes the default, which is the intended common
+    // case -- state it only where the palette actually reads differently.
+    "subsurface_depth": 6,
     // Intended roster: boreal conifers, frost-hardy shrubs. Awaits VOID-026.
     "vegetation": {
       "trees": [],

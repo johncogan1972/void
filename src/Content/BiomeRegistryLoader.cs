@@ -118,7 +118,28 @@ public static class BiomeRegistryLoader
                 CheckWall(biome, $"palette.wall_ambient[{i}]", biome.Palette.WallAmbient[i], walls);
             }
 
+            CheckSubsurfaceDepth(biome);
             CheckUndergroundVariant(biome, biomes);
+        }
+    }
+
+    /// <summary>
+    /// Rejects a negative <c>subsurface_depth</c> (VOID-056). Zero is legal and
+    /// means the surface block sits directly on the base block; a negative depth
+    /// would tell materialisation to begin the base fill above the surface row
+    /// and invert the column, which generates a world rather than failing.
+    ///
+    /// <para>Null is legal too and is not this check's business — it means "use
+    /// the world type's default", which no biome can validate on its own.</para>
+    /// </summary>
+    private static void CheckSubsurfaceDepth(BiomeDefinition biome)
+    {
+        if (biome.SubsurfaceDepth is int depth && depth < 0)
+        {
+            throw new ContentLoadException(
+                $"Biome '{biome.Id}' subsurface_depth is {depth}; it is a band thickness in rows " +
+                "and cannot be negative. Use 0 for no subsurface band, or omit the key to take " +
+                "the world type's default.");
         }
     }
 

@@ -1,6 +1,6 @@
 # World Data Model — Feature Spec
 
-**Version:** 0.3
+**Version:** 0.4
 **Status:** Draft
 **Companion to:** world-generation-spec.md (§5, §6, §10)
 
@@ -244,6 +244,13 @@ palette:
   base_block         : string             # bulk fill for the layer
   wall_default       : string
   wall_ambient       : string[]           # variations used stochastically
+
+# Rows of subsurface_block placed under the surface block by terrain
+# materialisation (world-generation-spec §6, Phase 2 step 5). Omit to take the
+# world type's terrain.default_subsurface_depth. Nullable rather than defaulted
+# to a number because 0 is a legal authored depth — surface block directly on
+# base block — which a non-nullable field could not tell from "not stated".
+subsurface_depth     : int?               # >= 0; negative is a fatal load error
 
 # Vegetation & decoration
 vegetation:
