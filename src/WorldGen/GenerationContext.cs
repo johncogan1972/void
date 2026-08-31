@@ -13,6 +13,11 @@ namespace Void;
 /// many draws every earlier phase happened to make, so adding one draw to the
 /// heightmap would move every ore in the world.</para>
 ///
+/// <para>It also carries <i>phase output</i> that later phases read — currently
+/// just the heightmap (VOID-047). Those members are the only mutable state here,
+/// and they follow one rule: set once, by the phase that owns them, before any
+/// later phase runs, and reading one that is unset throws.</para>
+///
 /// <para>Engine-free: no Godot types, so the whole pipeline is testable under
 /// plain <c>dotnet test</c>.</para>
 /// </summary>
@@ -86,6 +91,52 @@ public sealed class GenerationContext
     /// their output would depend on every other phase's draw count.
     /// </summary>
     public Rng Master { get; }
+
+    /// <summary>
+    /// Phase output, once <see cref="SetHeightmap"/> has run. Null only in the
+    /// window before Phase 1 step 2; <see cref="Heightmap"/> is the accessor
+    /// every consumer uses, so nothing outside this type ever sees the null.
+    /// </summary>
+    private Heightmap? _heightmap;
+
+    /// <summary>
+    /// Phase 1's surface elevation per column, read by macro features, biome
+    /// classification and structure placement.
+    ///
+    /// <para><b>The rule for phase output on this context:</b> written once, by
+    /// the phase that owns it, before any later phase runs; read-only
+    /// thereafter. Reading it before it is set throws rather than returning null
+    /// or an empty map, because a phase that quietly generated against a flat
+    /// world-of-zeros would produce a world that looks generated and is
+    /// wrong.</para>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">If the heightmap phase has not run yet.</exception>
+    public Heightmap Heightmap =>
+        _heightmap ?? throw new InvalidOperationException(
+            "The heightmap has not been generated yet. Phase 1 step 2 must run before any phase "
+            + "that reads the surface; see world-generation-spec §6 for the phase order.");
+
+    /// <summary>
+    /// Records the generated heightmap. Called by
+    /// <see cref="HeightmapGenerator"/>'s phase step and by nothing else.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// If a heightmap is already set. Fatal rather than an overwrite: two phases
+    /// each believing they own the surface is a pipeline-ordering bug, and the
+    /// second write would silently discard whatever the first produced.
+    /// </exception>
+    public void SetHeightmap(Heightmap heightmap)
+    {
+        ArgumentNullException.ThrowIfNull(heightmap);
+
+        if (_heightmap is not null)
+        {
+            throw new InvalidOperationException(
+                "The heightmap is already set. It is written once, by the phase that owns it.");
+        }
+
+        _heightmap = heightmap;
+    }
 
     /// <summary>
     /// The sub-stream for one <see cref="GenKeys"/> key. Returns a fresh

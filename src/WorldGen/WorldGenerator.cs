@@ -6,8 +6,8 @@ namespace Void;
 /// Owns the ordering of the five generation phases and produces the world's
 /// <see cref="WorldManifest"/> (VOID-046, world-generation-spec §6).
 ///
-/// <para>Only Phase 1's structural metadata exists today — layer boundaries and
-/// dimensions. The phase ordering and the sub-stream convention are the point of
+/// <para>Only Phase 1's structural steps exist today — dimensions, layer
+/// boundaries and the surface heightmap. The phase ordering and the sub-stream convention are the point of
 /// this scaffold: every later phase derives its own stream from
 /// <see cref="GenerationContext.Stream"/> using a <see cref="GenKeys"/> constant,
 /// so phases can be written, reordered or run in isolation without changing what
@@ -49,14 +49,21 @@ public static class WorldGenerator
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        // Phase 1 — structural. Steps 1 and 3 of spec §6 are all that exists:
-        // the master stream lives on the context, and the layer boundaries are
-        // computed here. Steps 2 and 4 (heightmap, biome map) and phases 2-5
-        // will each derive their own stream from the context by GenKeys key;
-        // none of them may thread a generator in from the phase before.
+        // Phase 1 — structural, in spec §6 order: dimensions and layer
+        // boundaries (steps 1 and 3), then the heightmap (step 2). Step 4 (biome
+        // map) and phases 2-5 will each derive their own stream from the context
+        // by GenKeys key; none of them may thread a generator in from the phase
+        // before.
         WorldDimensions dimensions = ComputeDimensions(context.SizePreset);
         LayerBoundaries boundaries =
             LayerBoundaryCalculator.Compute(dimensions.HeightTiles, context.WorldType.LayerProportions);
+
+        // The heightmap is phase output, not manifest data: it is far too large
+        // to serialise per world and is cheap to reproduce from the seed. It
+        // goes onto the context, which is where every later phase reads it —
+        // macro features overlay it, biome classification and structure
+        // placement read it. Set before any of them run, exactly once.
+        context.SetHeightmap(HeightmapGenerator.Generate(context, boundaries));
 
         return new WorldManifest
         {
