@@ -6,8 +6,10 @@ namespace Void;
 /// <summary>
 /// Boot-time loader for the world-type registry (VOID-046).
 ///
-/// <para>World types name no ids in other registries, so this is not a
-/// cross-registry loader — but it is still the only way in, because the half of
+/// <para>Since VOID-048 a world type does name ids in another registry — every
+/// biome classification rule names a surface biome — but that half is deferred
+/// to <see cref="ValidateDeferredReferences"/>; everything <see cref="Load"/>
+/// checks is self-contained. It is the only way in, because the half of
 /// a world type that matters most is arithmetic that JSON parsing cannot check:
 /// layer proportions that do not sum to 1, or that squash a layer to zero rows
 /// at some size preset, parse perfectly and then generate a world that is
@@ -38,7 +40,8 @@ public static class WorldTypeRegistryLoader
     /// names no declared preset, any preset height at which a layer would be
     /// zero rows tall, an invalid heightmap octave stack or slope cap, or
     /// heightmap band fractions that leave no usable surface band at some
-    /// preset.
+    /// preset, an invalid biome-classification octave stack or shape knob, or
+    /// classification rules that leave any part of the climate square uncovered.
     /// </exception>
     public static Registry<WorldTypeDefinition> Load(IContentSource source)
     {
@@ -54,6 +57,12 @@ public static class WorldTypeRegistryLoader
             ValidateProportions(worldType);
             ValidateHeightmapOctaves(worldType);
             ValidateSizePresets(worldType);
+
+            // Classification last, for the same reason CheckSurfaceBandFits runs
+            // in a second pass: it is the least fundamental of the checks, and a
+            // world type with a broken layer split should send its author to the
+            // split rather than to a biome table that was never the problem.
+            ValidateBiomeClassification(worldType);
         }
 
         return worldTypes;
@@ -124,6 +133,251 @@ public static class WorldTypeRegistryLoader
                 $"{heightmap.MaxColumnDelta}; it is the per-column elevation cap in rows and must " +
                 "be at least 1, or generation would flatten the world to a single row.");
         }
+    }
+
+    /// <summary>
+    /// Resolves every biome classification rule's biome id, now that the biome
+    /// registry exists.
+    ///
+    /// <para><b>Why deferred at all, when biomes load before world types.</b>
+    /// Passing the biome registry into <see cref="Load"/> would work today and
+    /// would quietly make world-type loading order-dependent on a registry it
+    /// otherwise has nothing to do with; keeping the reference check in the same
+    /// closing step as
+    /// <see cref="BiomeRegistryLoader.ValidateDeferredReferences"/> keeps every
+    /// cross-registry check in world generation's content in one place, and keeps
+    /// <see cref="Load"/> callable — as the tests call it — with a hand-written
+    /// world type and no other registry in hand.</para>
+    ///
+    /// <para>Called by <see cref="ContentLoader.LoadAll"/> as part of the last
+    /// step of boot. It is not optional: a rule naming a biome that does not
+    /// exist is a world type that cannot classify part of its own climate
+    /// square, and generation would fail mid-world instead of at boot.</para>
+    /// </summary>
+    /// <param name="worldTypes">Registry returned by <see cref="Load"/>.</param>
+    /// <param name="biomes">Fully loaded biome registry; needed whole, not as ids, because the layer category is checked too.</param>
+    /// <exception cref="ContentLoadException">
+    /// On the first rule naming an unregistered biome, or one whose
+    /// <see cref="BiomeDefinition.LayerCategory"/> is not
+    /// <see cref="LayerCategory.Surface"/>. World types are visited in the
+    /// registry's ordinal-sorted order, so the reported failure is the same on
+    /// every machine.
+    /// </exception>
+    public static void ValidateDeferredReferences(
+        Registry<WorldTypeDefinition> worldTypes, Registry<BiomeDefinition> biomes)
+    {
+        ArgumentNullException.ThrowIfNull(worldTypes);
+        ArgumentNullException.ThrowIfNull(biomes);
+
+        foreach (WorldTypeDefinition worldType in worldTypes)
+        {
+            IReadOnlyList<BiomeClassificationRule> rules = worldType.BiomeClassification.Rules;
+
+            for (int i = 0; i < rules.Count; i++)
+            {
+                if (!biomes.TryGet(rules[i].Biome, out BiomeDefinition biome))
+                {
+                    throw new ContentLoadException(
+                        $"World type '{worldType.Id}' biome_classification.rules[{i}] names biome " +
+                        $"'{rules[i].Biome}', which is not a registered biome.");
+                }
+
+                if (biome.LayerCategory != LayerCategory.Surface)
+                {
+                    throw new ContentLoadException(
+                        $"World type '{worldType.Id}' biome_classification.rules[{i}] names biome " +
+                        $"'{biome.Id}', whose layer_category is '{biome.LayerCategory}' and not " +
+                        "'surface'. Classification assigns the surface column; the underground " +
+                        "layer follows from that biome's underground_variant, so naming a " +
+                        "non-surface biome here would leave the underground unresolvable.");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Checks the classification block that <see cref="Load"/> can check on its
+    /// own: both octave stacks, the two shape knobs, and — the important one —
+    /// that the rule rectangles cover the whole climate square. Biome ids are not
+    /// resolved here; see <see cref="ValidateDeferredReferences"/>.
+    /// </summary>
+    private static void ValidateBiomeClassification(WorldTypeDefinition worldType)
+    {
+        BiomeClassificationConfig config = worldType.BiomeClassification;
+
+        CheckClimateField(worldType, "temperature", config.Temperature);
+        CheckClimateField(worldType, "humidity", config.Humidity);
+
+        if (config.BlendColumns < 0)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' biome_classification.blend_columns is " +
+                $"{config.BlendColumns}; it is the half-width in columns of the seam jitter and " +
+                "cannot be negative.");
+        }
+
+        if (config.MinRunColumns < 1)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' biome_classification.min_run_columns is " +
+                $"{config.MinRunColumns}; it is the shortest surviving run of one biome and must " +
+                "be at least 1, because a run of zero columns does not exist.");
+        }
+
+        CheckRuleRectangles(worldType, config.Rules);
+        CheckRulesCoverTheSquare(worldType, config.Rules);
+    }
+
+    /// <summary>
+    /// One climate field's octave stack, delegated to
+    /// <see cref="NoiseFieldConfig.ToFbmParameters"/> for the same reason
+    /// <see cref="ValidateHeightmapOctaves"/> delegates: one definition of a valid
+    /// octave stack, translated here into a message that names the data file.
+    /// </summary>
+    private static void CheckClimateField(
+        WorldTypeDefinition worldType, string field, NoiseFieldConfig config)
+    {
+        try
+        {
+            config.ToFbmParameters();
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' biome_classification.{field} has an invalid octave " +
+                $"stack: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Every rectangle must sit inside the unit square with a non-empty span on
+    /// both axes. Checked before coverage, because an inverted or out-of-range
+    /// rectangle would also make the coverage sweep's answer meaningless — and
+    /// "this range is backwards" points at the mistake, where "the square is not
+    /// covered" sends the author hunting for a missing rule.
+    /// </summary>
+    private static void CheckRuleRectangles(
+        WorldTypeDefinition worldType, IReadOnlyList<BiomeClassificationRule> rules)
+    {
+        for (int i = 0; i < rules.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(rules[i].Biome))
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' biome_classification.rules[{i}] names no biome.");
+            }
+
+            CheckRange(worldType, i, "temperature", rules[i].Temperature);
+            CheckRange(worldType, i, "humidity", rules[i].Humidity);
+        }
+    }
+
+    /// <summary>One rule axis: finite, inside [0, 1], and strictly ascending.</summary>
+    private static void CheckRange(
+        WorldTypeDefinition worldType, int index, string axis, UnitRange range)
+    {
+        if (!double.IsFinite(range.Min) || !double.IsFinite(range.Max)
+            || range.Min < 0.0 || range.Max > 1.0 || range.Min >= range.Max)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' biome_classification.rules[{index}].{axis} is " +
+                $"{range}; a climate range must lie within [0, 1] with min strictly below max. " +
+                "The axes are normalised noise, so a bound outside [0, 1] describes a climate " +
+                "that cannot occur.");
+        }
+    }
+
+    /// <summary>
+    /// Proves the rules leave <b>no gap</b> in the climate square, exactly rather
+    /// than by sampling.
+    ///
+    /// <para>Because every rule is an axis-aligned rectangle, the distinct edge
+    /// coordinates on each axis (plus 0 and 1) cut the square into a grid whose
+    /// every cell is either wholly inside a rule or wholly outside all of them.
+    /// Testing one interior point per cell is therefore a complete proof, not a
+    /// sample: the grid has no finer structure for a gap to hide in. Midpoints
+    /// are used so the answer never depends on whether a rule's edge is treated
+    /// as inclusive.</para>
+    ///
+    /// <para>Overlap between rules is deliberately <i>not</i> an error — first
+    /// match in authored order wins, and a narrow rule shadowing a broad fallback
+    /// is normal authoring. A gap is an error, because the column it corresponds
+    /// to has no biome and generation would have to invent one.</para>
+    /// </summary>
+    private static void CheckRulesCoverTheSquare(
+        WorldTypeDefinition worldType, IReadOnlyList<BiomeClassificationRule> rules)
+    {
+        if (rules.Count == 0)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' declares no biome_classification.rules, so no column " +
+                "of its surface could be classified.");
+        }
+
+        double[] temperatureEdges = CollectEdges(rules, static rule => rule.Temperature);
+        double[] humidityEdges = CollectEdges(rules, static rule => rule.Humidity);
+
+        for (int t = 0; t < temperatureEdges.Length - 1; t++)
+        {
+            double temperature = (temperatureEdges[t] + temperatureEdges[t + 1]) * 0.5;
+
+            for (int h = 0; h < humidityEdges.Length - 1; h++)
+            {
+                double humidity = (humidityEdges[h] + humidityEdges[h + 1]) * 0.5;
+
+                if (Covers(rules, temperature, humidity))
+                {
+                    continue;
+                }
+
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' biome_classification.rules leave the climate " +
+                    $"region temperature [{temperatureEdges[t]}, {temperatureEdges[t + 1]}] x " +
+                    $"humidity [{humidityEdges[h]}, {humidityEdges[h + 1]}] uncovered. The rules " +
+                    "must tile the whole unit square: any column whose climate lands in a gap " +
+                    "would have no biome, and generation fails rather than inventing one.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The sorted, de-duplicated cut coordinates of one axis, always including
+    /// both ends of the unit square so a rule set that stops short of 0 or 1
+    /// leaves a cell rather than shrinking the square it is checked against.
+    /// </summary>
+    private static double[] CollectEdges(
+        IReadOnlyList<BiomeClassificationRule> rules, Func<BiomeClassificationRule, UnitRange> axis)
+    {
+        SortedSet<double> edges = new() { 0.0, 1.0 };
+
+        for (int i = 0; i < rules.Count; i++)
+        {
+            UnitRange range = axis(rules[i]);
+
+            // Edges outside the square cannot cut it, and CheckRuleRectangles has
+            // already rejected them; clamping here only keeps this pure geometry.
+            edges.Add(Math.Clamp(range.Min, 0.0, 1.0));
+            edges.Add(Math.Clamp(range.Max, 0.0, 1.0));
+        }
+
+        double[] sorted = new double[edges.Count];
+        edges.CopyTo(sorted);
+        return sorted;
+    }
+
+    /// <summary>Whether any rule claims one climate point; order is irrelevant to coverage.</summary>
+    private static bool Covers(
+        IReadOnlyList<BiomeClassificationRule> rules, double temperature, double humidity)
+    {
+        for (int i = 0; i < rules.Count; i++)
+        {
+            if (rules[i].Matches(temperature, humidity))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

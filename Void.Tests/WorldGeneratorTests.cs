@@ -135,6 +135,15 @@ public class WorldGeneratorTests
               "layer_proportions": {
                 "outside": 0.10, "underground": 0.20, "deep": 0.30, "void": 0.40
               },
+              "biome_classification": {
+                "temperature": { "octaves": 3, "frequency": 0.0004 },
+                "humidity": { "octaves": 3, "frequency": 0.0007 },
+                "blend_columns": 24,
+                "min_run_columns": 16,
+                "rules": [
+                  { "biome": "test:biome", "temperature": [0.0, 1.0], "humidity": [0.0, 1.0] }
+                ]
+              },
               "size_preset": "medium",
               "size_presets": [{ "id": "medium", "width_tiles": 6400, "height_tiles": 1800 }]
             }

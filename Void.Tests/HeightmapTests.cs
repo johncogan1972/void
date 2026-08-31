@@ -61,6 +61,7 @@ public class HeightmapTests
             "surface_bottom_fraction": {{bottomFraction}},
             "max_column_delta": {{maxColumnDelta}}
           },
+        {{WorldTypeDefinitionTests.ClassificationBlock}}
           "size_preset": "medium",
           "size_presets": [{ "id": "medium", "width_tiles": 800, "height_tiles": 1800 }]
         }

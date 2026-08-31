@@ -55,9 +55,30 @@ public class WorldTypeDefinitionTests
             "deep": {{deep}},
             "void": {{voidLayer}}
           },
+        {{ClassificationBlock}}
           "size_preset": "{{defaultPreset}}",
           "size_presets": [{{presets}}]
         }
+        """;
+
+    /// <summary>
+    /// A minimal, valid <c>biome_classification</c> block (VOID-048). Every world
+    /// type needs one — the loader rejects rules that do not cover the whole
+    /// climate square, and no rules is the extreme case of that — so the fixtures
+    /// here carry the least interesting valid block: one rule over the whole
+    /// square. The biome id is never resolved on this path, because reference
+    /// resolution is deferred to <see cref="WorldTypeRegistryLoader.ValidateDeferredReferences"/>.
+    /// </summary>
+    public const string ClassificationBlock = """
+        "biome_classification": {
+            "temperature": { "octaves": 3, "frequency": 0.0004 },
+            "humidity": { "octaves": 3, "frequency": 0.0007 },
+            "blend_columns": 24,
+            "min_run_columns": 16,
+            "rules": [
+              { "biome": "test:biome", "temperature": [0.0, 1.0], "humidity": [0.0, 1.0] }
+            ]
+          },
         """;
 
     /// <summary>Loads one hand-written world type through the real loader.</summary>
@@ -182,15 +203,18 @@ public class WorldTypeDefinitionTests
     }
 
     /// <summary>
-    /// World types name no ids in other registries, so they must not be marked
-    /// <see cref="ICrossRegistryValidated"/> — that marker exists to force a
-    /// two-registry loader, and claiming it here would be a lie about what the
-    /// type needs.
+    /// Since VOID-048 a world type names ids in another registry — every biome
+    /// classification rule names a surface biome — so it must carry
+    /// <see cref="ICrossRegistryValidated"/>. The marker is what makes the
+    /// generic <c>RegistryLoader.Load&lt;T&gt;</c> refuse the type; without it a
+    /// caller could build a world-type registry whose rules point at biomes that
+    /// do not exist, and the failure would surface as a world that stops
+    /// generating halfway.
     /// </summary>
     [Fact]
-    public void WorldTypeDefinitionIsNotCrossRegistryValidated()
+    public void WorldTypeDefinitionIsCrossRegistryValidated()
     {
-        Assert.False(typeof(ICrossRegistryValidated).IsAssignableFrom(typeof(WorldTypeDefinition)));
+        Assert.True(typeof(ICrossRegistryValidated).IsAssignableFrom(typeof(WorldTypeDefinition)));
     }
 
     /// <summary>

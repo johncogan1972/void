@@ -13,8 +13,8 @@ namespace Void;
 /// many draws every earlier phase happened to make, so adding one draw to the
 /// heightmap would move every ore in the world.</para>
 ///
-/// <para>It also carries <i>phase output</i> that later phases read — currently
-/// just the heightmap (VOID-047). Those members are the only mutable state here,
+/// <para>It also carries <i>phase output</i> that later phases read — the
+/// heightmap (VOID-047) and the surface biome map (VOID-048). Those members are the only mutable state here,
 /// and they follow one rule: set once, by the phase that owns them, before any
 /// later phase runs, and reading one that is unset throws.</para>
 ///
@@ -136,6 +136,52 @@ public sealed class GenerationContext
         }
 
         _heightmap = heightmap;
+    }
+
+    /// <summary>
+    /// Phase output, once <see cref="SetBiomeMap"/> has run. Null only in the
+    /// window before Phase 1 step 4; <see cref="BiomeMap"/> is the accessor every
+    /// consumer uses, so nothing outside this type ever sees the null.
+    /// </summary>
+    private BiomeMap? _biomeMap;
+
+    /// <summary>
+    /// Phase 1's surface biome per column, read by terrain composition,
+    /// vegetation, spawn pools and — through
+    /// <see cref="Void.BiomeMap.UndergroundBiomeAt"/> — the underground layer.
+    ///
+    /// <para>Same rule as <see cref="Heightmap"/>: written once, by the phase
+    /// that owns it, before any later phase runs; read-only thereafter. Reading
+    /// it early throws rather than returning null, because a phase that quietly
+    /// composed a world with no biomes would produce a world that looks
+    /// generated and is wrong.</para>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">If the biome map phase has not run yet.</exception>
+    public BiomeMap BiomeMap =>
+        _biomeMap ?? throw new InvalidOperationException(
+            "The biome map has not been generated yet. Phase 1 step 4 must run before any phase "
+            + "that reads biomes; see world-generation-spec §6 for the phase order.");
+
+    /// <summary>
+    /// Records the generated biome map. Called by <see cref="BiomeClassifier"/>'s
+    /// phase step and by nothing else.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// If a biome map is already set. Fatal rather than an overwrite: two phases
+    /// each believing they own biome assignment is a pipeline-ordering bug, and
+    /// the second write would silently discard the first.
+    /// </exception>
+    public void SetBiomeMap(BiomeMap biomeMap)
+    {
+        ArgumentNullException.ThrowIfNull(biomeMap);
+
+        if (_biomeMap is not null)
+        {
+            throw new InvalidOperationException(
+                "The biome map is already set. It is written once, by the phase that owns it.");
+        }
+
+        _biomeMap = biomeMap;
     }
 
     /// <summary>

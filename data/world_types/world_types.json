@@ -43,6 +43,48 @@
       // steep-but-walkable slope; raising it lets cliffs form.
       "max_column_delta": 3
     },
+    // Phase 1 step 4 surface biomes (VOID-048). Two independent low-frequency
+    // fields give each column a temperature and a humidity in [0, 1], and the
+    // FIRST rule below whose rectangle contains that point names the column's
+    // surface biome — so the array order is part of the world's identity, not
+    // presentation. The rules must together cover the whole unit square;
+    // WorldTypeRegistryLoader proves that at boot, so no column can end up
+    // unclassifiable. Overlap between rules is legal and is resolved by order.
+    //
+    // The two frequencies are deliberately different. Matched frequencies would
+    // make temperature and humidity move together, collapsing the square to a
+    // diagonal and leaving most of the authored rectangles unreachable. 1/2500
+    // puts a temperature zone at roughly 40 chunks across on Medium.
+    "biome_classification": {
+      "temperature": {
+        "octaves": 3,
+        "frequency": 0.0004,
+        "lacunarity": 2.0,
+        "persistence": 0.5
+      },
+      "humidity": {
+        "octaves": 3,
+        "frequency": 0.0007,
+        "lacunarity": 2.0,
+        "persistence": 0.5
+      },
+      // Half-width in columns of the jitter applied to the climate sample
+      // position, which is what makes a biome seam wander instead of running
+      // dead straight down the world. Not a per-column blend: one biome per
+      // column is the output, so there is nothing to interpolate.
+      "blend_columns": 24,
+      // Shortest run of one biome that survives. Shorter runs are absorbed into
+      // their left-hand neighbour, which is what stops a boundary from
+      // scattering single-column islands of the wrong biome.
+      "min_run_columns": 16,
+      // MVP's three surface biomes. Frostreach takes the cold third at any
+      // humidity; the warm two-thirds split on humidity into forest and meadow.
+      "rules": [
+        { "biome": "void:frostreach", "temperature": [0.00, 0.30], "humidity": [0.00, 1.00] },
+        { "biome": "void:forest",     "temperature": [0.30, 1.00], "humidity": [0.55, 1.00] },
+        { "biome": "void:meadow",     "temperature": [0.30, 1.00], "humidity": [0.00, 0.55] }
+      ]
+    },
     "size_preset": "medium",
     "size_presets": [
       { "id": "small", "width_tiles": 4200, "height_tiles": 1200 },

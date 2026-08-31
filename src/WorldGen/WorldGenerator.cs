@@ -7,8 +7,9 @@ namespace Void;
 /// <see cref="WorldManifest"/> (VOID-046, world-generation-spec §6).
 ///
 /// <para>Only Phase 1's structural steps exist today — dimensions, layer
-/// boundaries and the surface heightmap. The phase ordering and the sub-stream convention are the point of
-/// this scaffold: every later phase derives its own stream from
+/// boundaries, the surface heightmap and the surface biome map. The phase
+/// ordering and the sub-stream convention are the point of this scaffold: every
+/// later phase derives its own stream from
 /// <see cref="GenerationContext.Stream"/> using a <see cref="GenKeys"/> constant,
 /// so phases can be written, reordered or run in isolation without changing what
 /// any other phase generates.</para>
@@ -50,10 +51,10 @@ public static class WorldGenerator
         ArgumentNullException.ThrowIfNull(context);
 
         // Phase 1 — structural, in spec §6 order: dimensions and layer
-        // boundaries (steps 1 and 3), then the heightmap (step 2). Step 4 (biome
-        // map) and phases 2-5 will each derive their own stream from the context
-        // by GenKeys key; none of them may thread a generator in from the phase
-        // before.
+        // boundaries (steps 1 and 3), then the heightmap (step 2), then the
+        // biome map (step 4). Each generating step derives its own stream from
+        // the context by GenKeys key, as phases 2-5 will; none of them may
+        // thread a generator in from the phase before.
         WorldDimensions dimensions = ComputeDimensions(context.SizePreset);
         LayerBoundaries boundaries =
             LayerBoundaryCalculator.Compute(dimensions.HeightTiles, context.WorldType.LayerProportions);
@@ -64,6 +65,13 @@ public static class WorldGenerator
         // macro features overlay it, biome classification and structure
         // placement read it. Set before any of them run, exactly once.
         context.SetHeightmap(HeightmapGenerator.Generate(context, boundaries));
+
+        // The biome map is phase output for the same reasons, and is generated
+        // after the heightmap only because that is spec §6's step order — it
+        // reads the climate fields, not the surface. The underground layer is
+        // not a second map: it follows from this one, column by column, through
+        // BiomeMap.UndergroundBiomeAt.
+        context.SetBiomeMap(BiomeClassifier.Generate(context));
 
         return new WorldManifest
         {
