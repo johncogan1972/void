@@ -159,6 +159,7 @@ public class RequiredContentValidatorTests
                 ContentLoader.EnemiesFolder => content.Enemies.Count,
                 ContentLoader.BiomesFolder => content.Biomes.Count,
                 ContentLoader.PrefabsFolder => content.Prefabs.Count,
+                ContentLoader.WorldTypesFolder => content.WorldTypes.Count,
                 _ => throw new InvalidOperationException(
                     $"Registry '{spec.Folder}' is declared but not covered by this test. "
                     + "Add it here — an uncovered spec can point at the wrong registry unnoticed."),

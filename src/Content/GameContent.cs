@@ -3,8 +3,9 @@ using System;
 namespace Void;
 
 /// <summary>
-/// The seven content registries of world-data-model-spec §7, loaded once at
-/// boot and frozen (VOID-025).
+/// The content registries of world-data-model-spec §7 plus the world-type
+/// configuration of world-generation-spec §4, loaded once at boot and frozen
+/// (VOID-025, VOID-046).
 ///
 /// <para>Produced only by <see cref="ContentLoader.LoadAll"/>, which loads the
 /// registries in dependency order and cross-validates them; an instance of this
@@ -13,7 +14,7 @@ namespace Void;
 /// generation, the server and every client session.</para>
 ///
 /// <para><b>Why these are plain <see cref="Registry{T}"/> instances and not
-/// seven named registry classes.</b> The spec lists <c>BlockRegistry</c>,
+/// named registry classes.</b> The spec lists <c>BlockRegistry</c>,
 /// <c>BiomeRegistry</c> and friends as concepts, not as types to write. The
 /// generic registry already provides id lookup, numeric-id lookup and the
 /// ordinal-sorted iteration that world generation depends on, so seven
@@ -35,7 +36,8 @@ public sealed class GameContent
         Registry<LootTableDefinition> lootTables,
         Registry<EnemyDefinition> enemies,
         Registry<BiomeDefinition> biomes,
-        Registry<PrefabDefinition> prefabs)
+        Registry<PrefabDefinition> prefabs,
+        Registry<WorldTypeDefinition> worldTypes)
     {
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(walls);
@@ -44,6 +46,7 @@ public sealed class GameContent
         ArgumentNullException.ThrowIfNull(enemies);
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(prefabs);
+        ArgumentNullException.ThrowIfNull(worldTypes);
 
         Blocks = blocks;
         Walls = walls;
@@ -52,6 +55,7 @@ public sealed class GameContent
         Enemies = enemies;
         Biomes = biomes;
         Prefabs = prefabs;
+        WorldTypes = worldTypes;
     }
 
     /// <summary>
@@ -80,4 +84,11 @@ public sealed class GameContent
 
     /// <summary>Prefabs, whose tile arrays resolve against blocks and walls.</summary>
     public Registry<PrefabDefinition> Prefabs { get; }
+
+    /// <summary>
+    /// World templates: layer proportions and size presets, already checked to
+    /// sum to 1 and to leave no zero-height layer at any declared preset. Read
+    /// by <see cref="GenerationContext"/> at the start of generation.
+    /// </summary>
+    public Registry<WorldTypeDefinition> WorldTypes { get; }
 }

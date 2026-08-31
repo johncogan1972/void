@@ -83,4 +83,7 @@ internal static class ContentPaths
 
     /// <summary>The shipped prefabs, whose tile arrays resolve against blocks and walls.</summary>
     public static Registry<PrefabDefinition> Prefabs() => All().Prefabs;
+
+    /// <summary>The shipped world types, with proportions and size presets validated.</summary>
+    public static Registry<WorldTypeDefinition> WorldTypes() => All().WorldTypes;
 }
