@@ -40,6 +40,15 @@ public sealed class WorldTypeDefinition : IContentDefinition
     public LayerProportions LayerProportions { get; init; } = LayerProportions.Default;
 
     /// <summary>
+    /// Surface-elevation tuning for Phase 1 step 2: the octave stack and the
+    /// slice of the Outside layer the surface may occupy. Defaults to
+    /// <see cref="HeightmapConfig.Default"/> so an entry written before this
+    /// existed still generates, but terrain shape is design and belongs in the
+    /// data file, not in that default.
+    /// </summary>
+    public HeightmapConfig Heightmap { get; init; } = HeightmapConfig.Default;
+
+    /// <summary>
     /// Every size this world type may be generated at. Order is authoring order
     /// and carries no meaning; lookups go through
     /// <see cref="FindSizePreset"/> by id.

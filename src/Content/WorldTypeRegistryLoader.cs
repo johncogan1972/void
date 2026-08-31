@@ -35,8 +35,10 @@ public static class WorldTypeRegistryLoader
     /// <exception cref="ContentLoadException">
     /// On malformed JSON, a duplicate id, proportions that do not sum to 1, a
     /// non-positive or duplicated size preset, a default <c>size_preset</c> that
-    /// names no declared preset, or any preset height at which a layer would be
-    /// zero rows tall.
+    /// names no declared preset, any preset height at which a layer would be
+    /// zero rows tall, an invalid heightmap octave stack or slope cap, or
+    /// heightmap band fractions that leave no usable surface band at some
+    /// preset.
     /// </exception>
     public static Registry<WorldTypeDefinition> Load(IContentSource source)
     {
@@ -50,6 +52,7 @@ public static class WorldTypeRegistryLoader
         foreach (WorldTypeDefinition worldType in worldTypes)
         {
             ValidateProportions(worldType);
+            ValidateHeightmapOctaves(worldType);
             ValidateSizePresets(worldType);
         }
 
@@ -92,11 +95,75 @@ public static class WorldTypeRegistryLoader
     }
 
     /// <summary>
+    /// Checks the heightmap's octave stack and slope cap — the parts that do not
+    /// depend on world height. The octave check is delegated to
+    /// <see cref="HeightmapConfig.ToFbmParameters"/> rather than re-listed here,
+    /// so there is exactly one definition of a valid octave stack; the throw it
+    /// produces is translated into a <see cref="ContentLoadException"/> that
+    /// names the world type, because a stack trace out of a struct constructor
+    /// does not tell an author which data file to open.
+    /// </summary>
+    private static void ValidateHeightmapOctaves(WorldTypeDefinition worldType)
+    {
+        HeightmapConfig heightmap = worldType.Heightmap;
+
+        try
+        {
+            heightmap.ToFbmParameters();
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' has an invalid heightmap octave stack: {ex.Message}");
+        }
+
+        if (heightmap.MaxColumnDelta < 1)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' heightmap.max_column_delta is " +
+                $"{heightmap.MaxColumnDelta}; it is the per-column elevation cap in rows and must " +
+                "be at least 1, or generation would flatten the world to a single row.");
+        }
+    }
+
+    /// <summary>
+    /// Runs the real surface-band resolution for one preset. Uses
+    /// <see cref="SurfaceBand.Compute"/> for the same reason
+    /// <see cref="CheckNoZeroHeightLayer"/> uses the real boundary calculator:
+    /// band fractions that leave no sky, or too few rows to shape terrain in,
+    /// depend on the preset's height, and boot must check exactly the rule
+    /// generation applies.
+    /// </summary>
+    private static void CheckSurfaceBandFits(WorldTypeDefinition worldType, WorldSizePreset preset)
+    {
+        LayerBoundaries b = LayerBoundaryCalculator.Compute(preset.HeightTiles, worldType.LayerProportions);
+
+        try
+        {
+            SurfaceBand.Compute(b.OutsideEnd, worldType.Heightmap);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' heightmap band at size preset '{preset.Id}' " +
+                $"(outside layer {b.OutsideEnd} rows) is unusable: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Checks the presets themselves and, for each, that the proportions produce
     /// four layers of at least one row. The zero-height check runs per preset
     /// because it depends on height: a split that is fine at Large can vanish a
     /// layer at Small, and the failure must surface at boot rather than the
     /// first time someone generates a small world.
+    ///
+    /// <para><b>The surface-band check is a second pass, deliberately.</b> Both
+    /// checks derive from the same layer proportions, so bad proportions trip
+    /// both — and "this split vanishes a layer" points an author at the actual
+    /// mistake, where "the heightmap band is unusable" sends them to tune a
+    /// heightmap that was never the problem. Running every preset's geometry
+    /// check before any preset's band check keeps the more fundamental error the
+    /// one that gets reported.</para>
     /// </summary>
     private static void ValidateSizePresets(WorldTypeDefinition worldType)
     {
@@ -130,6 +197,11 @@ public static class WorldTypeRegistryLoader
             }
 
             CheckNoZeroHeightLayer(worldType, preset);
+        }
+
+        foreach (WorldSizePreset preset in worldType.SizePresets)
+        {
+            CheckSurfaceBandFits(worldType, preset);
         }
 
         if (worldType.FindSizePreset(worldType.SizePreset) is null)

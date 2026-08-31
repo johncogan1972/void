@@ -22,6 +22,27 @@
       "deep": 0.30,
       "void": 0.15
     },
+    // Phase 1 step 2 surface elevation (VOID-047). The octave stack is fBm over
+    // the column index: frequency is in lattice cells per tile, so 1/512 is a
+    // hill range about eight chunks wide, and each further octave halves the
+    // amplitude while doubling the frequency.
+    //
+    // The band fractions are fractions of the *outside layer*, not of world
+    // height, so they scale across size presets untouched: 0.45-0.80 of Medium's
+    // 540-row outside layer puts the surface in rows 243-432 and leaves 243 rows
+    // of sky above it. Changing any of these regenerates the terrain of every
+    // existing seed, with no code change — which is the point.
+    "heightmap": {
+      "octaves": 4,
+      "frequency": 0.001953125,
+      "lacunarity": 2.0,
+      "persistence": 0.5,
+      "surface_top_fraction": 0.45,
+      "surface_bottom_fraction": 0.80,
+      // Rows of elevation change allowed between adjacent columns. 3 is a
+      // steep-but-walkable slope; raising it lets cliffs form.
+      "max_column_delta": 3
+    },
     "size_preset": "medium",
     "size_presets": [
       { "id": "small", "width_tiles": 4200, "height_tiles": 1200 },
