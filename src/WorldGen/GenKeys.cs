@@ -24,22 +24,25 @@ public static class GenKeys
     public const string Phase1Heightmap = "phase1.heightmap";
     public const string Phase1BiomeMap = "phase1.biome_map";
 
-    // Phase 2 — terrain shaping (steps 5-7).
+    // Phase 2 — terrain shaping (steps 6-8). Step 5, terrain materialisation,
+    // has no key on purpose: it is a pure function of the heightmap, the biome
+    // map and the biome palettes, so there is nothing for a stream to decide.
+    // See TerrainMaterializer.
     public const string Phase2MacroFeatures = "phase2.macro_features";
     public const string Phase2Caves = "phase2.caves";
     public const string Phase2Water = "phase2.water";
 
-    // Phase 3 — composition (steps 8-10).
+    // Phase 3 — composition (steps 9-11).
     public const string Phase3Ores = "phase3.ores";
     public const string Phase3Vegetation = "phase3.vegetation";
     public const string Phase3Structures = "phase3.structures";
 
-    // Phase 4 — reservations and metadata (steps 11-14).
+    // Phase 4 — reservations and metadata (steps 12-15).
     public const string Phase4PlayerSpawn = "phase4.player_spawn";
     public const string Phase4BossLair = "phase4.boss_lair";
     public const string Phase4PortalCandidates = "phase4.portal_candidates";
 
-    // Phase 5 — validation and polish (steps 15-16).
+    // Phase 5 — validation and polish (steps 16-17).
     public const string Phase5PostProcess = "phase5.post_process";
 
     /// <summary>
