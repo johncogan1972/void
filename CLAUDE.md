@@ -60,8 +60,16 @@ Commit at logical stopping points as the work proceeds, and push each commit.
 Do not batch a feature into one commit at the end, and do not leave commits
 sitting unpushed.
 
-When the feature is done, open the PR and **stop there — ask before merging.**
-Merging is the user's call, never automatic.
+When the feature is done, open the PR. **Merge it without asking when — and only
+when — the work is genuinely clean:** the full ladder green on the branch
+(`tests/check.sh --strict`, every rung, no SKIPs), the PR mergeable, and no
+design decision, spec contradiction, content choice or judgment call left open.
+Then merge, close the ticket, and report.
+
+**Stop and ask whenever any of that fails**, or when the work turned on a
+decision the ticket did not settle. The point is not to save a step; it is to
+spend the round trip on things that are actually undecided rather than on
+formalities. A merge you are unsure about is exactly the one to ask about.
 
 **Closing keywords do not fire here.** GitHub only auto-closes on merge into the
 *default* branch, which is `main`. Every feature PR targets `dev`, so `Closes #7`
