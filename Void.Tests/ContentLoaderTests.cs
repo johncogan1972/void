@@ -144,7 +144,12 @@ public class ContentLoaderTests
           },
           "vegetation": { "trees": [{{vegetationTrees}}], "plants": [], "decorations": [] },
           "enemies": [{{enemies}}],
-          "underground_variant": null
+          // Names a shipped variant rather than null: this fixture is added
+          // alongside the real biome documents, and since VOID-048 a surface
+          // biome without an underground_variant is fatal at load. Leaving it
+          // null would make every test using this helper fail on the pairing
+          // rule before reaching the dangling ref it is actually about.
+          "underground_variant": "void:root_hollows"
         }
         """;
 
