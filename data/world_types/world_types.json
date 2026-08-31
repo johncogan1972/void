@@ -1,0 +1,32 @@
+[
+  // World types are the per-template generation config of world-generation-spec
+  // §4 and §6. Ids are stable forever: every saved world records its world type
+  // by string id, so retire ids, never repurpose them.
+  //
+  // Layer proportions must sum to 1 and must leave every layer at least one row
+  // tall at every size preset listed here — WorldTypeRegistryLoader refuses the
+  // load otherwise, because a squashed layer generates a wrong world rather than
+  // a failing one.
+  //
+  // Size presets live here rather than in code so that shipping Small or Large
+  // is a content change. MVP generates Medium only; the other two are declared
+  // and unused, which is exactly the point.
+  {
+    "id": "void:home",
+    "display_name": "Home World",
+    // The default 30/25/30/15 of spec §4. On Medium this yields boundaries
+    // 540 / 990 / 1530, with the void running 1530-1800.
+    "layer_proportions": {
+      "outside": 0.30,
+      "underground": 0.25,
+      "deep": 0.30,
+      "void": 0.15
+    },
+    "size_preset": "medium",
+    "size_presets": [
+      { "id": "small", "width_tiles": 4200, "height_tiles": 1200 },
+      { "id": "medium", "width_tiles": 6400, "height_tiles": 1800 },
+      { "id": "large", "width_tiles": 8400, "height_tiles": 2400 }
+    ]
+  }
+]

@@ -32,6 +32,7 @@ public static class ContentLoader
     public const string EnemiesFolder = "enemies";
     public const string BiomesFolder = "biomes";
     public const string PrefabsFolder = "prefabs";
+    public const string WorldTypesFolder = "world_types";
 
     // Spelled once so the Registries table below reads as a column of
     // declarations rather than a column of bare "true"s.
@@ -48,6 +49,7 @@ public static class ContentLoader
     /// <item><c>enemies</c> — each names at most one loot table.</item>
     /// <item><c>biomes</c> — palette names blocks and walls; variant names a biome.</item>
     /// <item><c>prefabs</c> — tile arrays hold raw block and wall numeric ids.</item>
+    /// <item><c>world_types</c> — self-contained; validated arithmetically, not by reference.</item>
     /// </list>
     /// Biome vegetation prefabs and spawn-pool enemies close the one cycle in
     /// the graph, so they are checked after everything is loaded — see
@@ -57,7 +59,7 @@ public static class ContentLoader
     /// the two agree — without that test this list could quietly become a lie,
     /// which is worse than not having it.</para>
     /// <para>The same table also declares which registries the game refuses to
-    /// boot without (VOID-014). All seven are required today: every one of them
+    /// boot without (VOID-014). All eight are required today: every one of them
     /// is load-bearing for world generation, and an empty one has never yet
     /// meant anything but a path or packaging mistake. A registry that can
     /// genuinely ship empty gets <c>required: false</c> here — and nothing else
@@ -73,6 +75,7 @@ public static class ContentLoader
         new ContentRegistrySpec(EnemiesFolder, Required, static c => c.Enemies.Count),
         new ContentRegistrySpec(BiomesFolder, Required, static c => c.Biomes.Count),
         new ContentRegistrySpec(PrefabsFolder, Required, static c => c.Prefabs.Count),
+        new ContentRegistrySpec(WorldTypesFolder, Required, static c => c.WorldTypes.Count),
     };
 
     /// <summary>
@@ -133,15 +136,21 @@ public static class ContentLoader
         Registry<PrefabDefinition> prefabs =
             PrefabRegistryLoader.Load(Source(sourceFactory, PrefabsFolder, searchedPaths), blocks, walls);
 
-        // 7. The deferred half of biome validation, now that both registries it
+        // 7. World types: layer proportions and size presets. They reference no
+        //    other registry, so their position in the order is free; they load
+        //    last of the parsing steps to keep the reference chain above intact.
+        Registry<WorldTypeDefinition> worldTypes =
+            WorldTypeRegistryLoader.Load(Source(sourceFactory, WorldTypesFolder, searchedPaths));
+
+        // 8. The deferred half of biome validation, now that both registries it
         //    needs exist. Runs last rather than being retried mid-sequence: a
         //    dangling vegetation prefab or spawn enemy is a content bug and must
         //    stop boot, not shrink the biome to whatever happened to resolve.
         BiomeRegistryLoader.ValidateDeferredReferences(biomes, prefabs.Ids, enemies.Ids);
 
-        GameContent content = new(blocks, walls, items, lootTables, enemies, biomes, prefabs);
+        GameContent content = new(blocks, walls, items, lootTables, enemies, biomes, prefabs, worldTypes);
 
-        // 8. Nothing above notices a registry that simply loaded nothing —
+        // 9. Nothing above notices a registry that simply loaded nothing —
         //    an empty folder is a clean parse and resolves no references. This
         //    is the catch-all for "the content did not arrive at all", and it
         //    runs last because a partially-missing tree usually trips a
@@ -158,7 +167,7 @@ public static class ContentLoader
     /// </summary>
     /// <param name="searchedPaths">
     /// Recorded into, not read: the source's description is captured here as
-    /// the load happens, because by the time step 8 finds an empty registry the
+    /// the load happens, because by the time step 9 finds an empty registry the
     /// source object is gone.
     /// </param>
     private static IContentSource Source(
