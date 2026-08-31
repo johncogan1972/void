@@ -56,6 +56,7 @@ public static class WorldTypeRegistryLoader
         {
             ValidateProportions(worldType);
             ValidateHeightmapOctaves(worldType);
+            ValidateTerrain(worldType);
             ValidateSizePresets(worldType);
 
             // Classification last, for the same reason CheckSurfaceBandFits runs
@@ -132,6 +133,25 @@ public static class WorldTypeRegistryLoader
                 $"World type '{worldType.Id}' heightmap.max_column_delta is " +
                 $"{heightmap.MaxColumnDelta}; it is the per-column elevation cap in rows and must " +
                 "be at least 1, or generation would flatten the world to a single row.");
+        }
+    }
+
+    /// <summary>
+    /// Checks the terrain block's fallback subsurface depth. Zero is legal and
+    /// means the surface block sits directly on the base block; negative is not,
+    /// because materialisation would read it as "start the base fill above the
+    /// surface" and invert the column.
+    /// </summary>
+    private static void ValidateTerrain(WorldTypeDefinition worldType)
+    {
+        int depth = worldType.Terrain.DefaultSubsurfaceDepth;
+
+        if (depth < 0)
+        {
+            throw new ContentLoadException(
+                $"World type '{worldType.Id}' terrain.default_subsurface_depth is {depth}; " +
+                "it is a band thickness in rows and cannot be negative. Use 0 for no subsurface " +
+                "band at all.");
         }
     }
 

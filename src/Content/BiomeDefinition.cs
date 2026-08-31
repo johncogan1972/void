@@ -42,6 +42,24 @@ public sealed class BiomeDefinition : ICrossRegistryValidated
     /// <summary>Blocks and walls generation fills the region with.</summary>
     public BiomePalette Palette { get; init; } = new BiomePalette();
 
+    /// <summary>
+    /// Rows of <see cref="BiomePalette.SubsurfaceBlock"/> that terrain
+    /// materialisation places beneath the surface block (VOID-056), or null to
+    /// use the world type's <see cref="TerrainConfig.DefaultSubsurfaceDepth"/>.
+    /// JSON key <c>subsurface_depth</c>.
+    ///
+    /// <para><b>Nullable rather than defaulted to a number</b>, because 0 is a
+    /// legal authored depth meaning "surface block directly on base block". A
+    /// non-nullable field could not tell that apart from "not stated", so every
+    /// biome that wanted the world-type default would have to restate it and
+    /// would silently stop tracking it.</para>
+    ///
+    /// <para>Negative values are a fatal load error; see
+    /// <see cref="BiomeRegistryLoader"/>.</para>
+    /// </summary>
+    [JsonPropertyName("subsurface_depth")]
+    public int? SubsurfaceDepth { get; init; }
+
     /// <summary>Prefab scatter sets. All three lists may be empty.</summary>
     public BiomeVegetation Vegetation { get; init; } = new BiomeVegetation();
 

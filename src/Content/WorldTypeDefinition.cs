@@ -62,6 +62,16 @@ public sealed class WorldTypeDefinition : ICrossRegistryValidated
         BiomeClassificationConfig.Default;
 
     /// <summary>
+    /// Terrain materialisation tuning for Phase 2 step 5: the fallback
+    /// subsurface band thickness for biomes that state none. Defaults to
+    /// <see cref="TerrainConfig.Default"/>, which is a usable value rather than
+    /// an empty one — unlike biome classification there is a sane universal
+    /// default here, because every biome already brings its own palette and only
+    /// the band thickness is left to say.
+    /// </summary>
+    public TerrainConfig Terrain { get; init; } = TerrainConfig.Default;
+
+    /// <summary>
     /// Every size this world type may be generated at. Order is authoring order
     /// and carries no meaning; lookups go through
     /// <see cref="FindSizePreset"/> by id.
