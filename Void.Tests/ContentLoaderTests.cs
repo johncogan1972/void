@@ -208,7 +208,16 @@ public class ContentLoaderTests
     private static string[] ExplodedIds(bool reverse) =>
         new ReversedContentSource(ContentPaths.Source("blocks"), reverse)
             .ReadAll()
-            .Select(static d => JsonDocument.Parse(d.Json).RootElement.GetProperty("id").GetString()!)
+            // Same options the decorator and the production loader use. Parsing
+            // with the defaults instead works right up until a shipped block
+            // carries an interior comment, then fails on the content rather than
+            // on anything this test is about -- which is exactly what VOID-048's
+            // snow/ice entries tripped.
+            .Select(static d => JsonDocument.Parse(d.Json, new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true,
+            }).RootElement.GetProperty("id").GetString()!)
             .ToArray();
 
     /// <summary>

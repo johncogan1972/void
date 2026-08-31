@@ -83,5 +83,160 @@
       "light_tint": null
     },
     "hazards": []
+  },
+  {
+    // biome-content-spec §3.3. Distinguished from Meadow at Sub-Phase A by
+    // palette alone: the thick trees, hanging vines and deep narrow rivers that
+    // actually separate the two are W8, W8 and W6 respectively. That is
+    // expected, not a defect -- see VOID-048's scope caveat.
+    "id": "void:forest",
+    "display_name": "Forest",
+    "layer_category": "surface",
+    "palette": {
+      "surface_block": "void:grass",
+      "subsurface_block": "void:dirt",
+      // Mossy stone rather than plain stone is what reads as "forest" before
+      // any vegetation exists to plant on it.
+      "base_block": "void:mossy_stone",
+      "wall_default": "void:root_wall",
+      "wall_ambient": []
+    },
+    // Empty for the same reason Meadow's is: vegetation prefabs arrive with
+    // VOID-026. Intended roster, so it is not lost: thick medium/tall trees,
+    // hanging vines, ferns.
+    "vegetation": {
+      "trees": [],
+      "plants": [],
+      "decorations": []
+    },
+    "ore_biases": {
+      "void:copper": 1.1,
+      "void:iron": 1.1
+    },
+    // Reuses the shipped enemy roster. data/enemies/enemies.json holds five
+    // enemies and biome spawn pools ARE hard-validated, so a forest-specific
+    // roster would have to add enemies this ticket is not scoped for.
+    "enemies": [
+      { "enemy_id": "void:deer", "weight": 0.4, "time_of_day": "day" },
+      { "enemy_id": "void:rabbit", "weight": 0.3, "time_of_day": "day" },
+      { "enemy_id": "void:grey_wolf", "weight": 0.6, "time_of_day": "night" }
+    ],
+    "underground_variant": "void:root_tangle",
+    "ambient": {
+      "music_theme": null,
+      "particle_effect": null,
+      "light_tint": null
+    },
+    "hazards": []
+  },
+  {
+    // biome-content-spec §4: Forest's underground variant -- denser roots than
+    // Root Hollows, mossy stone throughout.
+    "id": "void:root_tangle",
+    "display_name": "Root Tangle",
+    "layer_category": "underground",
+    "palette": {
+      "surface_block": "void:dirt",
+      "subsurface_block": "void:dirt",
+      "base_block": "void:mossy_stone",
+      "wall_default": "void:root_wall",
+      "wall_ambient": ["void:dirt_wall"]
+    },
+    "vegetation": {
+      "trees": [],
+      "plants": [],
+      "decorations": []
+    },
+    "ore_biases": {
+      "void:iron": 1.3
+    },
+    "enemies": [
+      { "enemy_id": "void:cave_beetle", "weight": 0.5, "time_of_day": "any" }
+    ],
+    "underground_variant": null,
+    "ambient": {
+      "music_theme": null,
+      "particle_effect": null,
+      "light_tint": null
+    },
+    "hazards": []
+  },
+  {
+    // biome-content-spec §3.6. The steep mountains and high cave density that
+    // define Frostreach are W4 and W5; here it is snow and ice.
+    "id": "void:frostreach",
+    "display_name": "Frostreach",
+    "layer_category": "surface",
+    "palette": {
+      "surface_block": "void:snow",
+      "subsurface_block": "void:ice",
+      "base_block": "void:stone",
+      "wall_default": "void:ice_wall",
+      "wall_ambient": []
+    },
+    // Intended roster: boreal conifers, frost-hardy shrubs. Awaits VOID-026.
+    "vegetation": {
+      "trees": [],
+      "plants": [],
+      "decorations": []
+    },
+    // The spec calls for silver and a rare frost ore. Neither ore exists, and
+    // ore_biases are NOT validated against any registry, so naming them would
+    // dangle silently forever. Biasing only shipped ores keeps the file honest.
+    "ore_biases": {
+      "void:iron": 1.2,
+      "void:copper": 0.7
+    },
+    // As with Forest: shipped enemies only. Rabbits and wolves on a snow
+    // mountain are placeholder, not design -- a frost roster is its own ticket.
+    "enemies": [
+      { "enemy_id": "void:rabbit", "weight": 0.3, "time_of_day": "day" },
+      { "enemy_id": "void:grey_wolf", "weight": 0.6, "time_of_day": "night" },
+      { "enemy_id": "void:small_skeleton", "weight": 0.4, "time_of_day": "night" }
+    ],
+    // Deliberately outside the root_* family: there are no tree roots under a
+    // snow mountain, and the name describes the place rather than matching a
+    // pattern. See VOID-048's correction comment.
+    "underground_variant": "void:frozen_halls",
+    "ambient": {
+      "music_theme": null,
+      "particle_effect": null,
+      "light_tint": null
+    },
+    "hazards": []
+  },
+  {
+    // biome-content-spec §4: Frostreach's underground variant. Ice-veined walls
+    // and small frozen ponds; ice does not block light, so these read as lit
+    // from within.
+    "id": "void:frozen_halls",
+    "display_name": "Frozen Halls",
+    "layer_category": "underground",
+    "palette": {
+      "surface_block": "void:ice",
+      "subsurface_block": "void:ice",
+      "base_block": "void:stone",
+      "wall_default": "void:ice_wall",
+      "wall_ambient": ["void:stone_wall"]
+    },
+    "vegetation": {
+      "trees": [],
+      "plants": [],
+      "decorations": []
+    },
+    "ore_biases": {
+      "void:iron": 1.2
+    },
+    "enemies": [
+      { "enemy_id": "void:cave_beetle", "weight": 0.4, "time_of_day": "any" },
+      { "enemy_id": "void:small_skeleton", "weight": 0.4, "time_of_day": "any" }
+    ],
+    "underground_variant": null,
+    "ambient": {
+      "music_theme": null,
+      "particle_effect": null,
+      "light_tint": null
+    },
+    "hazards": []
   }
 ]

@@ -127,8 +127,18 @@ public class BiomeDefinitionTests : IDisposable
     {
         Registry<BiomeDefinition> biomes = ContentPaths.Biomes();
 
-        Assert.Equal(2, biomes.Count);
-        Assert.Equal(new[] { "void:meadow", "void:root_hollows" }, biomes.Ids);
+        // VOID-048 took the roster to three surface biomes and their three
+        // underground variants. Listed in full, in ordinal order, because the
+        // order is the registry's determinism guarantee and not an accident of
+        // how the file happens to be written.
+        Assert.Equal(6, biomes.Count);
+        Assert.Equal(
+            new[]
+            {
+                "void:forest", "void:frostreach", "void:frozen_halls",
+                "void:meadow", "void:root_hollows", "void:root_tangle",
+            },
+            biomes.Ids);
 
         BiomeDefinition meadow = biomes.Get("void:meadow");
         Assert.Equal("Meadow", meadow.DisplayName);
@@ -397,11 +407,19 @@ public class BiomeDefinitionTests : IDisposable
             .Select(static p => p.Prefab)
             .ToArray();
 
+        // Which biome gets reported is derived, not hardcoded: the guarantee
+        // under test is that validation walks the registry in ordinal order and
+        // so blames the same biome on every machine. Naming a biome literally
+        // here would instead break every time the roster grows a new
+        // alphabetically-earlier entry -- which is precisely what VOID-048 did
+        // when 'void:forest' displaced 'void:meadow' as the first spawn pool.
+        BiomeDefinition firstWithEnemies = shipped.First(static b => b.Enemies.Count > 0);
+
         ContentLoadException enemyEx = Assert.Throws<ContentLoadException>(
             () => BiomeRegistryLoader.ValidateDeferredReferences(shipped, prefabs, Array.Empty<string>()));
         Assert.Contains("enemy", enemyEx.Message, StringComparison.Ordinal);
-        Assert.Contains("void:meadow", enemyEx.Message, StringComparison.Ordinal);
-        Assert.Contains("void:rabbit", enemyEx.Message, StringComparison.Ordinal);
+        Assert.Contains(firstWithEnemies.Id, enemyEx.Message, StringComparison.Ordinal);
+        Assert.Contains(firstWithEnemies.Enemies[0].EnemyId, enemyEx.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
