@@ -1,6 +1,6 @@
 # World Generation — Feature Spec
 
-**Version:** 0.5
+**Version:** 0.6
 **Status:** Draft
 **Companion to:** GDD §3, §4
 **Sub-specs:** `world-data-model-spec.md`, `cave-generation-spec.md`
@@ -110,27 +110,32 @@ Generation runs as five sequential phases. Each phase is deterministic, seeded f
 
 ### Phase 2 — Terrain shaping
 
-5. **Macro features.** Overlay mountain ranges, valleys, plateaus, oceans onto the heightmap using low-frequency noise.
-6. **Cave carving.** Hybrid system (see §7).
-7. **Water simulation.** Place lakes in heightmap depressions; rivers flow from high to low along gradient; underground reservoirs placed in eligible caverns. Water is placed at gen time and settled to a stable state.
+5. **Terrain materialisation.** Fill chunks with tiles from the heightmap and the biome map (VOID-056). Per column, using the biome's palette: air above the surface Y, `surface_block` at it, `subsurface_block` for the biome's `subsurface_depth` rows beneath, `base_block` below that to the bottom of the world. Walls are `wall_default` at and below the surface, none in open sky. Rows at or below the Outside boundary take the column's `underground_variant` palette, per the pairing rule in §8. Output: `Chunk` values.
+
+    This step is **pull-based**: it is a pure function of the chunk coordinate, so chunks are materialised on demand rather than all at once — a Medium world is 2,900 chunks and about 92 MB of tiles. It draws no randomness at all, deriving nothing from the seed beyond what the heightmap and biome map already fixed.
+
+    Everything after it carves, floods or scatters *into* these tiles, which is why it sits at the head of Phase 2 rather than at the end of Phase 1: Phase 1 is structural and produces arrays, and macro features (step 6) still operate on the heightmap rather than on tiles.
+6. **Macro features.** Overlay mountain ranges, valleys, plateaus, oceans onto the heightmap using low-frequency noise.
+7. **Cave carving.** Hybrid system (see §7).
+8. **Water simulation.** Place lakes in heightmap depressions; rivers flow from high to low along gradient; underground reservoirs placed in eligible caverns. Water is placed at gen time and settled to a stable state.
 
 ### Phase 3 — Composition
 
-8. **Ore & material distribution.** Depth-tiered (see §9).
-9. **Vegetation.** Biome-appropriate trees, plants, mushrooms. Density and spread per biome.
-10. **Structure placement.** Hand-authored prefabs stitched at valid locations. Dungeons, ruins, shrines. Placement respects prefab constraints (biome, layer, elevation).
+9. **Ore & material distribution.** Depth-tiered (see §9).
+10. **Vegetation.** Biome-appropriate trees, plants, mushrooms. Density and spread per biome.
+11. **Structure placement.** Hand-authored prefabs stitched at valid locations. Dungeons, ruins, shrines. Placement respects prefab constraints (biome, layer, elevation).
 
 ### Phase 4 — Reservations & metadata
 
-11. **Player spawn point.** Selected on the surface in a safe location — flat ground, no immediate hazards, in the starter biome.
-12. **Main boss lair.** A reserved zone protected from other generation. Prefab-based. Location: TBD per world design.
-13. **Portal spawn candidate slots.** Pre-computed list of valid tile positions where side anchors may spawn post-main-boss. Constrained to underground / deep / void layers (per GDD §4). Additional constraints: in accessible cave space, minimum distance from main boss lair and from each other.
-14. **Region annotations per chunk.** Each chunk's metadata is populated: primary biome, primary layer, ore density estimate, structure count, special flags (contains boss lair, contains portal candidate, etc.). Used at runtime by other systems.
+12. **Player spawn point.** Selected on the surface in a safe location — flat ground, no immediate hazards, in the starter biome.
+13. **Main boss lair.** A reserved zone protected from other generation. Prefab-based. Location: TBD per world design.
+14. **Portal spawn candidate slots.** Pre-computed list of valid tile positions where side anchors may spawn post-main-boss. Constrained to underground / deep / void layers (per GDD §4). Additional constraints: in accessible cave space, minimum distance from main boss lair and from each other.
+15. **Region annotations per chunk.** Each chunk's metadata is populated: primary biome, primary layer, ore density estimate, structure count, special flags (contains boss lair, contains portal candidate, etc.). Used at runtime by other systems.
 
 ### Phase 5 — Validation & polish
 
-15. **Reachability check.** Verify critical areas (spawn, main boss lair, all portal candidate zones) are reachable via connected traversable space. On failure: log, potentially regenerate a section.
-16. **Post-processing.** Fix impossible tile configurations (floating single tiles, unsupported blocks). Smooth harsh biome transitions. Apply tile decorators (cracks, moss).
+16. **Reachability check.** Verify critical areas (spawn, main boss lair, all portal candidate zones) are reachable via connected traversable space. On failure: log, potentially regenerate a section.
+17. **Post-processing.** Fix impossible tile configurations (floating single tiles, unsupported blocks). Smooth harsh biome transitions. Apply tile decorators (cracks, moss).
 
 ## 7. Cave Generation (Hybrid)
 
@@ -307,14 +312,14 @@ All original open questions locked in v0.2:
 2. **Prefab authoring format:** Tiled (.tmx export → JSON).
 3. **Main boss lair:** biome-adaptive prefab variants. Location procedurally chosen and not marked — player must explore to find it.
 4. **Weather system:** post-MVP. **Day/night cycle with dawn/dusk transitions is in MVP.**
-5. **Sky content:** MVP = decorative scudding clouds only. Post-MVP = floating islands, sky biomes, weather.
-6. **Underground biomes:** underground layer matches surface biome directly above; deep and void use standalone biomes.
-7. **River generation:** L-system-based simplified paths for MVP.
-8. **Ore vein algorithm:** random-walk placement per vein.
-9. **Deep-layer hazards:** lava pools, poison water pockets, poison gas pockets.
-10. **Void-layer identity:** distinct tile palette, void damage aura, liquid void rivers/pools (more damaging than lava), reduced natural light, larger caverns, void-exclusive monsters.
-11. **Pre-generation time budget:** target <60s for Medium on target hardware. Feasible with C# / GDExtension + parallelised phases.
-12. **Chunk load cache:** 9×9 chunk window around each player, up to 200 chunks cached with LRU eviction. All values tuneable via config.
+6. **Sky content:** MVP = decorative scudding clouds only. Post-MVP = floating islands, sky biomes, weather.
+7. **Underground biomes:** underground layer matches surface biome directly above; deep and void use standalone biomes.
+8. **River generation:** L-system-based simplified paths for MVP.
+9. **Ore vein algorithm:** random-walk placement per vein.
+10. **Deep-layer hazards:** lava pools, poison water pockets, poison gas pockets.
+11. **Void-layer identity:** distinct tile palette, void damage aura, liquid void rivers/pools (more damaging than lava), reduced natural light, larger caverns, void-exclusive monsters.
+12. **Pre-generation time budget:** target <60s for Medium on target hardware. Feasible with C# / GDExtension + parallelised phases.
+13. **Chunk load cache:** 9×9 chunk window around each player, up to 200 chunks cached with LRU eviction. All values tuneable via config.
 
 **Follow-up questions resolved in v0.3:**
 
@@ -339,6 +344,7 @@ Breaking this spec into workable chunks for GitHub. Each is an epic that will sp
 - **W1 — World data model.** Tile format, chunk format, world manifest, prefab schema, biome schema. Spec: `world-data-model-spec.md`.
 - **W2 — Deterministic RNG infrastructure.** xoshiro256++, sub-stream derivation, CI reference-seed test.
 - **W3 — Phase 1 pipeline: structural.** Heightmap, layer boundaries, biome map.
+- **W3b — Phase 2 step 5: terrain materialisation.** Fill chunks with tiles from the heightmap and biome map (VOID-056). Lettered rather than renumbered because W4-W14 are referenced by shipped tickets and code comments. Blocks W5-W8: caves, water, ores and vegetation all read and write tiles that nothing else creates.
 - **W4 — Phase 2a: terrain shaping.** Macro features, heightmap application.
 - **W5 — Phase 2b: hybrid cave carving.** Perlin worms + cellular automata. Spec: `cave-generation-spec.md`.
 - **W6 — Phase 2c: water and liquid placement.** Lakes, rivers (L-system), reservoirs, deep hazards (lava, poison water, poison gas), void liquid.
@@ -354,7 +360,7 @@ Breaking this spec into workable chunks for GitHub. Each is an epic that will sp
 
 - **W14 — Surface feature pass (post-MVP).** A dedicated Phase 2 sub-step that places overhang formations, cliff undercuts, plateau features, and other dramatic surface silhouettes. For MVP, overhangs emerge naturally where cave carving intersects the surface layer — this is functional but produces less dramatic vertical variety than a purpose-built pass would. Add when playtesting shows the outside layer feeling too flat-topped.
 
-Rough sequencing: W1 → W2 → W3 → W4/W5/W6 (parallel) → W7/W8/W9 (parallel) → W10 → W11 → W12/W13 (parallel).
+Rough sequencing: W1 → W2 → W3 → W3b → W4/W5/W6 (parallel) → W7/W8/W9 (parallel) → W10 → W11 → W12/W13 (parallel).
 
 ---
 
