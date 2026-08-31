@@ -47,18 +47,15 @@ public static class BiomeRegistryLoader
     }
 
     /// <summary>
-    /// Resolves the references this ticket cannot check yet: vegetation prefab
-    /// ids and enemy pool ids.
+    /// Resolves the two reference kinds <see cref="Load"/> cannot: vegetation
+    /// prefab ids and enemy pool ids. They close the one cycle in the content
+    /// graph — biomes load before prefabs, because prefabs need only blocks and
+    /// walls — so they are checked once everything is loaded.
     ///
-    /// <para><b>Nothing calls this yet — by design.</b> The prefab registry lands
-    /// in VOID-024 and the enemy registry in VOID-023; until then those refs are
-    /// allowed to dangle, because biome data legitimately runs ahead of the
-    /// content it names. Wiring this call into the boot sequence is part of
-    /// VOID-023 / VOID-024, and the id-set parameters become
-    /// <c>Registry&lt;PrefabDefinition&gt;</c> and
-    /// <c>Registry&lt;EnemyDefinition&gt;</c> at that point. What is not
-    /// deferred is the severity: when this check does run, a dangling ref is
-    /// fatal, never a warning.</para>
+    /// <para>Called by <see cref="ContentLoader.LoadAll"/> as the last step of
+    /// boot (VOID-025). It is not optional and there is no warning-only mode: a
+    /// dangling ref here is a biome that silently grows nothing or spawns
+    /// nothing, which no later stage reports.</para>
     /// </summary>
     /// <param name="biomes">Registry returned by <see cref="Load"/>.</param>
     /// <param name="knownPrefabIds">Every registered prefab id. Lookup only, so its order is irrelevant.</param>

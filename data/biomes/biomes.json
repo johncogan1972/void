@@ -18,18 +18,17 @@
       // than inventing wall entries.
       "wall_ambient": []
     },
+    // Emptied in VOID-025, when boot began validating vegetation refs: these
+    // prefabs were authored ahead of the prefabs themselves and every id
+    // dangled. VOID-026 (the Tiled prefab converter) restores them together
+    // with the real prefabs. What was here, so the intent is not lost:
+    //   trees:       void:oak_small 0.5, void:oak_medium 0.3, void:oak_large 0.2
+    //   plants:      void:wildflower_yellow 0.4
+    //   decorations: void:grass_tall 1.0
     "vegetation": {
-      "trees": [
-        { "prefab": "void:oak_small", "weight": 0.5 },
-        { "prefab": "void:oak_medium", "weight": 0.3 },
-        { "prefab": "void:oak_large", "weight": 0.2 }
-      ],
-      "plants": [
-        { "prefab": "void:wildflower_yellow", "weight": 0.4 }
-      ],
-      "decorations": [
-        { "prefab": "void:grass_tall", "weight": 1.0 }
-      ]
+      "trees": [],
+      "plants": [],
+      "decorations": []
     },
     // Ores not listed here generate at their base rate (multiplier 1.0).
     "ore_biases": {

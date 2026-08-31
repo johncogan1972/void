@@ -409,12 +409,11 @@ public class BlockWallDefinitionTests : IDisposable
     [Fact]
     public void ShippedBlockAndWallDataLoads()
     {
-        string data = Path.Combine(RepositoryRoot(), "data");
-
-        Registry<BlockDefinition> blocks =
-            RegistryLoader.Load<BlockDefinition>(new DirectoryContentSource(Path.Combine(data, "blocks")));
-        Registry<WallDefinition> walls =
-            RegistryLoader.Load<WallDefinition>(new DirectoryContentSource(Path.Combine(data, "walls")));
+        // Through the real boot path, not a second chain over the same files:
+        // a parallel loader here could stay green while the one that actually
+        // boots the game broke (VOID-025).
+        Registry<BlockDefinition> blocks = ContentPaths.Blocks();
+        Registry<WallDefinition> walls = ContentPaths.Walls();
 
         Assert.NotEmpty(blocks);
         Assert.NotEmpty(walls);

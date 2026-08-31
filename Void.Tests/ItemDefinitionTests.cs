@@ -43,8 +43,7 @@ public class ItemDefinitionTests
     public void EveryShippedBlockDropResolvesToAnItem()
     {
         Registry<ItemDefinition> items = ContentPaths.Items();
-        Registry<BlockDefinition> blocks =
-            RegistryLoader.Load<BlockDefinition>(ContentPaths.Source("blocks"));
+        Registry<BlockDefinition> blocks = ContentPaths.Blocks();
 
         foreach (BlockDefinition block in blocks)
         {

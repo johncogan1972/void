@@ -1,0 +1,90 @@
+[
+  // Two hand-written prefabs only: VOID-024 ships the schema and the loader,
+  // not the structure library (that is Phase 2 content work). They exist so the
+  // shipped tree exercises the loader for real — every block_id and wall_id
+  // below must resolve in data/blocks and data/walls, and every marker must sit
+  // inside the declared dimensions, or PrefabRegistryLoader fails the boot.
+  //
+  // Tile arrays are row-major, y * width + x, using THIS PREFAB'S width. They
+  // have nothing to do with the 64-wide chunk stride.
+  {
+    "prefab_id": "void:ruin_stone_small",
+    "category": "ruin",
+    "dimensions": { "width": 5, "height": 4 },
+    "constraints": {
+      // Empty allow-lists mean "any": this ruin is unrestricted by biome.
+      "allowed_biomes": [],
+      "allowed_layers": ["surface", "underground"],
+      "requires_ground": true,
+      "requires_cavern": false,
+      "min_spacing": { "same_category": 48, "any_category": 16 },
+      "clearance_above": 2
+    },
+    // Stone shell, hollow interior, doorway in the bottom wall at x = 2.
+    "block_ids": [
+      2, 2, 2, 2, 2,
+      2, 0, 0, 0, 2,
+      2, 0, 0, 0, 2,
+      2, 2, 0, 2, 2
+    ],
+    "wall_ids": [
+      2, 2, 2, 2, 2,
+      2, 2, 2, 2, 2,
+      2, 2, 2, 2, 2,
+      2, 2, 2, 2, 2
+    ],
+    "markers": [
+      // Metadata shape is per-marker-kind and is not validated at load; the
+      // placement engine gives these keys meaning (Phase 2).
+      {
+        "type": "entrance",
+        "x": 2,
+        "y": 3,
+        "metadata": { "facing": "south" }
+      },
+      {
+        "type": "chest",
+        "x": 1,
+        "y": 2,
+        "metadata": {
+          "loot_table_id": "void:cave_beetle_loot",
+          "tier": 2,
+          "locked": false
+        }
+      }
+    ],
+    "weight": 1.0
+  },
+  {
+    "prefab_id": "void:shrine_wood_small",
+    "category": "shrine",
+    "dimensions": { "width": 3, "height": 3 },
+    "constraints": {
+      "allowed_biomes": ["void:meadow"],
+      "allowed_layers": ["surface"],
+      "requires_ground": true,
+      "requires_cavern": false,
+      "min_spacing": { "same_category": 96, "any_category": 24 },
+      "clearance_above": 1
+    },
+    "block_ids": [
+      5, 5, 5,
+      5, 0, 5,
+      5, 0, 5
+    ],
+    "wall_ids": [
+      3, 3, 3,
+      3, 3, 3,
+      3, 3, 3
+    ],
+    "markers": [
+      {
+        "type": "spawner",
+        "x": 1,
+        "y": 1,
+        "metadata": { "enemy_id": "void:rabbit", "interval_seconds": 30.5 }
+      }
+    ],
+    "weight": 0.25
+  }
+]
