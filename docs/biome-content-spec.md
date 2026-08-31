@@ -1,6 +1,6 @@
 # Biome Content — Feature Spec
 
-**Version:** 0.1
+**Version:** 0.2
 **Status:** Draft (first-pass proposals)
 **Companion to:** GDD §3.4, world-generation-spec §4 & §8, world-data-model-spec §6
 
@@ -21,9 +21,17 @@ Biomes should:
 - **Support the tech-vs-magic split thematically.** Some biomes lean magical, some technological, some balanced.
 - **Escalate meaningfully into deeper layers.** Underground and deep versions aren't just "the same biome but darker" — they add complications.
 
-## 3. Home World Surface Biomes (MVP)
+## 3. Home World Surface Biomes
 
-Five surface biomes ship with MVP. Numbers, exact tile art, and creature identities are proposals to react to.
+Numbers, exact tile art, and creature identities are proposals to react to.
+
+**MVP roster — confirmed 2026-08-31.** MVP ships exactly three surface biomes:
+**Meadow** (`void:meadow`), **Forest** (`void:forest`) and **Frostreach**
+(`void:frostreach`). Scrubland, Ashwastes and Whisperbog stay in this section as
+designed-but-not-committed content, per CLAUDE.md's rule that content specs are
+aspirational; they are post-MVP unless scope is explicitly widened. Three is the
+minimum that makes the biome classifier testable — a transition, a blend band and
+a classification rule all need more than one candidate to demonstrate anything.
 
 ### 3.1 Meadow
 
@@ -54,13 +62,44 @@ Five surface biomes ship with MVP. Numbers, exact tile art, and creature identit
 
 **Role:** cold biome. Moderate-to-high danger. First environmental hazard.
 
-- **Palette:** pale blues and whites over grey stone. Snow on surface.
-- **Vegetation:** conifer trees, hardy shrubs. Nothing grows on ice tiles.
+- **Palette:** pale blues and whites over grey stone. Snow and ice everywhere on
+  the surface.
+- **Terrain:** the most vertical of the three MVP biomes — high, steep mountains,
+  and a markedly higher cave density than Meadow or Forest.
+- **Vegetation:** boreal conifer trees, hardy shrubs. Nothing grows on ice tiles.
 - **Enemy pool (day):** ice-touched wolves, elk with jagged antlers.
 - **Enemy pool (night):** frost wraiths (magic-tagged), yetis.
 - **Ore bias:** silver-analogue below. Cold-affinity ore variants.
 - **Ambient hazards:** cold damage (Cold damage type, mild) applied outdoors during blizzards or in prolonged exposure. Post-MVP weather. For MVP: cold damage in specific tile zones (icy caverns adjacent to surface).
 - **Signature material:** hardwood conifer, frost-touched pelts.
+
+**Feature dependencies.** Steep mountains are macro features (Sub-Phase B, epic W4)
+overlaid on the base heightmap, not the base heightmap itself — world-generation-spec
+§6 Phase 1 produces gentle bounded elevation and W4 shapes the drama into it. Raised
+cave density is a per-biome tuning value consumed by cave carving (Sub-Phase B, W5).
+Neither exists in Sub-Phase A, so Frostreach will initially generate as flat as
+Meadow, differing only in palette and classification.
+
+### 3.6 Forest
+
+**Role:** MVP. Denser, more vertical counterpart to Meadow. Moderate danger.
+
+- **Palette:** deep saturated greens over dark earth, dappled shade.
+- **Vegetation:** medium-to-tall thick-trunked trees, vines hanging from branches,
+  undergrowth beneath the canopy.
+- **Terrain:** rock overhangs; deep, narrow rivers and lakes rather than the broad
+  shallow water of Meadow.
+- **Ambient:** heavier canopy cover, less direct light at ground level than Meadow.
+- **Ore bias:** to be decided alongside the ore registry.
+- **Ambient hazards:** none.
+
+**Feature dependencies — this biome's identity does not land in one ticket.**
+Overhangs are not representable in the Sub-Phase A heightmap (one Y per column);
+per world-generation-spec §17's W14 note they emerge for MVP only where cave
+carving intersects the surface, and a purpose-built overhang pass is post-MVP.
+Deep narrow rivers are Sub-Phase B (W6, L-system rivers). Hanging vines are
+Sub-Phase C vegetation (W8). Until those land, Forest differs from Meadow only in
+palette and classification.
 
 ### 3.4 Ashwastes
 
@@ -92,9 +131,10 @@ Per world-generation-spec §4.2, the underground layer matches the surface biome
 
 | Surface     | Underground variant | Notes |
 |-------------|---------------------|-------|
-| Meadow      | Root Hollows        | Tree-root walls, dirt tunnels, occasional cave beetles. Copper ore common. |
+| Meadow      | Root Hollows (`void:root_hollows`) | Tree-root walls, dirt tunnels, occasional cave beetles. Copper ore common. |
+| Forest      | Root Tangle (`void:root_tangle`)   | Dense woven root walls, tighter winding tunnels, water seeping from above. |
 | Scrubland   | Sandstone Warrens   | Sandstone walls, cactus-root ceilings, sand-flow tiles. Iron ore common. |
-| Frostreach  | Frozen Halls        | Ice-veined walls, small frozen ponds, ice-lurking predators. Silver + rare frost ore. |
+| Frostreach  | Root Ice (`void:root_ice`)         | Ice-veined walls, small frozen ponds, ice-lurking predators. Silver + rare frost ore. Was "Frozen Halls"; renamed so every underground variant id sits in the `root_*` family. |
 | Ashwastes   | Ember Deeps         | Basalt walls, ambient warm light from lava seams, sulphur pockets. Iron + sulphur. |
 | Whisperbog  | Fungal Root Caves   | Mushroom-lined walls, mote-lit tunnels, hostile spore-drops. Motes + luminescent stems. |
 
