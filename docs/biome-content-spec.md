@@ -134,7 +134,7 @@ Per world-generation-spec §4.2, the underground layer matches the surface biome
 | Meadow      | Root Hollows (`void:root_hollows`) | Tree-root walls, dirt tunnels, occasional cave beetles. Copper ore common. |
 | Forest      | Root Tangle (`void:root_tangle`)   | Dense woven root walls, tighter winding tunnels, water seeping from above. |
 | Scrubland   | Sandstone Warrens   | Sandstone walls, cactus-root ceilings, sand-flow tiles. Iron ore common. |
-| Frostreach  | Root Ice (`void:root_ice`)         | Ice-veined walls, small frozen ponds, ice-lurking predators. Silver + rare frost ore. Was "Frozen Halls"; renamed so every underground variant id sits in the `root_*` family. |
+| Frostreach  | Frozen Halls (`void:frozen_halls`) | Ice-veined walls, small frozen ponds, ice-lurking predators. Silver + rare frost ore. Deliberately outside the `root_*` naming of the other two: there are no tree roots under a snow mountain, and the name should describe the place rather than match a pattern. |
 | Ashwastes   | Ember Deeps         | Basalt walls, ambient warm light from lava seams, sulphur pockets. Iron + sulphur. |
 | Whisperbog  | Fungal Root Caves   | Mushroom-lined walls, mote-lit tunnels, hostile spore-drops. Motes + luminescent stems. |
 
