@@ -144,7 +144,12 @@ public class ContentLoaderTests
           },
           "vegetation": { "trees": [{{vegetationTrees}}], "plants": [], "decorations": [] },
           "enemies": [{{enemies}}],
-          "underground_variant": null
+          // Names a shipped variant rather than null: this fixture is added
+          // alongside the real biome documents, and since VOID-048 a surface
+          // biome without an underground_variant is fatal at load. Leaving it
+          // null would make every test using this helper fail on the pairing
+          // rule before reaching the dangling ref it is actually about.
+          "underground_variant": "void:root_hollows"
         }
         """;
 
@@ -208,7 +213,16 @@ public class ContentLoaderTests
     private static string[] ExplodedIds(bool reverse) =>
         new ReversedContentSource(ContentPaths.Source("blocks"), reverse)
             .ReadAll()
-            .Select(static d => JsonDocument.Parse(d.Json).RootElement.GetProperty("id").GetString()!)
+            // Same options the decorator and the production loader use. Parsing
+            // with the defaults instead works right up until a shipped block
+            // carries an interior comment, then fails on the content rather than
+            // on anything this test is about -- which is exactly what VOID-048's
+            // snow/ice entries tripped.
+            .Select(static d => JsonDocument.Parse(d.Json, new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true,
+            }).RootElement.GetProperty("id").GetString()!)
             .ToArray();
 
     /// <summary>

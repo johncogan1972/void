@@ -49,11 +49,14 @@ public static class ContentLoader
     /// <item><c>enemies</c> — each names at most one loot table.</item>
     /// <item><c>biomes</c> — palette names blocks and walls; variant names a biome.</item>
     /// <item><c>prefabs</c> — tile arrays hold raw block and wall numeric ids.</item>
-    /// <item><c>world_types</c> — self-contained; validated arithmetically, not by reference.</item>
+    /// <item><c>world_types</c> — arithmetic validation is self-contained; the
+    /// biome ids their classification rules name are resolved in the closing
+    /// step below.</item>
     /// </list>
     /// Biome vegetation prefabs and spawn-pool enemies close the one cycle in
     /// the graph, so they are checked after everything is loaded — see
-    /// <see cref="BiomeRegistryLoader.ValidateDeferredReferences"/>.
+    /// <see cref="BiomeRegistryLoader.ValidateDeferredReferences"/> — and world
+    /// types' biome references are resolved in the same closing step.
     /// <para><see cref="LoadAll"/> below walks these folders in exactly this
     /// order, and <c>LoadAllRequestsFoldersInTheDeclaredLoadOrder</c> asserts
     /// the two agree — without that test this list could quietly become a lie,
@@ -136,9 +139,10 @@ public static class ContentLoader
         Registry<PrefabDefinition> prefabs =
             PrefabRegistryLoader.Load(Source(sourceFactory, PrefabsFolder, searchedPaths), blocks, walls);
 
-        // 7. World types: layer proportions and size presets. They reference no
-        //    other registry, so their position in the order is free; they load
-        //    last of the parsing steps to keep the reference chain above intact.
+        // 7. World types: layer proportions, size presets and biome
+        //    classification. Their only cross-registry references are resolved
+        //    in step 8, so their position in the order is free; they load last
+        //    of the parsing steps to keep the reference chain above intact.
         Registry<WorldTypeDefinition> worldTypes =
             WorldTypeRegistryLoader.Load(Source(sourceFactory, WorldTypesFolder, searchedPaths));
 
@@ -147,6 +151,12 @@ public static class ContentLoader
         //    dangling vegetation prefab or spawn enemy is a content bug and must
         //    stop boot, not shrink the biome to whatever happened to resolve.
         BiomeRegistryLoader.ValidateDeferredReferences(biomes, prefabs.Ids, enemies.Ids);
+
+        //    World types close the same way: every biome classification rule
+        //    names a surface biome (VOID-048). Checked here rather than inside
+        //    the world-type loader so that loader stays callable with nothing
+        //    but its own documents.
+        WorldTypeRegistryLoader.ValidateDeferredReferences(worldTypes, biomes);
 
         GameContent content = new(blocks, walls, items, lootTables, enemies, biomes, prefabs, worldTypes);
 

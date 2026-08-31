@@ -23,5 +23,18 @@
     "wall_id": 3,
     "display_name": "Wood Wall",
     "sprite": "res://assets/tiles/wood_wall.png"
+  },
+  // VOID-048 biome walls.
+  {
+    "id": "void:ice_wall",
+    "wall_id": 4,
+    "display_name": "Ice Wall",
+    "sprite": "res://assets/tiles/ice_wall.png"
+  },
+  {
+    "id": "void:root_wall",
+    "wall_id": 5,
+    "display_name": "Root Wall",
+    "sprite": "res://assets/tiles/root_wall.png"
   }
 ]

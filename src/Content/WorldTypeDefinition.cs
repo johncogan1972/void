@@ -16,11 +16,14 @@ namespace Void;
 /// <c>RegistryLoader.Load&lt;WorldTypeDefinition&gt;</c>.</b> The generic path
 /// only proves the JSON parsed; proportions that do not sum to 1, or that
 /// squash a layer to zero rows at some preset, parse perfectly and generate a
-/// broken world. It deliberately does <i>not</i> implement
-/// <see cref="ICrossRegistryValidated"/>, because it names no ids in other
-/// registries — its validation is entirely self-contained.</para>
+/// broken world. Since VOID-048 a world type also names ids in another registry
+/// — every biome classification rule names a surface biome — so it implements
+/// <see cref="ICrossRegistryValidated"/> and the generic path refuses it
+/// outright. Biomes load before world types, but the reference check still runs
+/// in a deferred pass, as
+/// <see cref="WorldTypeRegistryLoader.ValidateDeferredReferences"/> explains.</para>
 /// </summary>
-public sealed class WorldTypeDefinition : IContentDefinition
+public sealed class WorldTypeDefinition : ICrossRegistryValidated
 {
     /// <summary>
     /// Stable id, e.g. <c>void:home</c>. Written verbatim into
@@ -47,6 +50,16 @@ public sealed class WorldTypeDefinition : IContentDefinition
     /// data file, not in that default.
     /// </summary>
     public HeightmapConfig Heightmap { get; init; } = HeightmapConfig.Default;
+
+    /// <summary>
+    /// Surface biome tuning for Phase 1 step 4: the two climate noise fields and
+    /// the rectangles that map them onto biome ids. Defaults to
+    /// <see cref="BiomeClassificationConfig.Default"/>, which has no rules — a
+    /// world type that omits this block fails the coverage check at load, which
+    /// is correct, because there is no sane default set of biomes.
+    /// </summary>
+    public BiomeClassificationConfig BiomeClassification { get; init; } =
+        BiomeClassificationConfig.Default;
 
     /// <summary>
     /// Every size this world type may be generated at. Order is authoring order

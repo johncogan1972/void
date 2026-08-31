@@ -60,5 +60,44 @@
     "drop_item_id": "void:wood_block",
     "collision": "solid",
     "blocks_light": true
+  },
+  // Frostreach and Frozen Halls materials (VOID-048). Neither drops an item
+  // yet: data/items/items.json has no snow or ice block, and drop_item_id is
+  // not validated against the item registry, so naming one that does not exist
+  // would dangle silently rather than fail at boot. null is the honest value
+  // until the items land.
+  {
+    "id": "void:snow",
+    "block_id": 6,
+    "display_name": "Snow",
+    "sprite": "res://assets/tiles/snow.png",
+    // Softer than dirt: snow is the one surface a player digs through quickly.
+    "hardness": 6,
+    "drop_item_id": null,
+    "collision": "solid",
+    "blocks_light": true
+  },
+  {
+    "id": "void:ice",
+    "block_id": 7,
+    "display_name": "Ice",
+    "sprite": "res://assets/tiles/ice.png",
+    "hardness": 15,
+    "drop_item_id": null,
+    // Ice is translucent by design -- Frozen Halls reads as lit through the
+    // walls, which is the whole visual point of the biome.
+    "collision": "solid",
+    "blocks_light": false
+  },
+  {
+    "id": "void:mossy_stone",
+    "block_id": 8,
+    "display_name": "Mossy Stone",
+    "sprite": "res://assets/tiles/mossy_stone.png",
+    // Same hardness as stone: it is stone with moss on it, not a weaker rock.
+    "hardness": 30,
+    "drop_item_id": "void:stone_block",
+    "collision": "solid",
+    "blocks_light": true
   }
 ]
