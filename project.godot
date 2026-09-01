@@ -32,6 +32,12 @@ window/stretch/aspect="expand"
 
 [rendering]
 
+; Pixel art: nearest-neighbour, never linear. Terrain tiles are 16x16 flat
+; colours and the default bilinear filter blurs their edges into each other,
+; which destroys the very thing the world viewer exists to judge -- where one
+; biome stops and the next starts. Set project-wide rather than per-texture so
+; new art cannot be added without it.
+textures/canvas_textures/default_texture_filter=0
 rendering_device/driver.windows="d3d12"
 
 [dotnet]
