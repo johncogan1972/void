@@ -1,0 +1,43 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/View/WorldViewer.cs" id="1_viewer"]
+[ext_resource type="Script" path="res://scripts/viewer_hud.gd" id="2_hud"]
+
+[node name="WorldViewer" type="Node2D"]
+script = ExtResource("1_viewer")
+
+[node name="WallLayer" type="TileMapLayer" parent="."]
+unique_name_in_owner = true
+z_index = -1
+
+[node name="BlockLayer" type="TileMapLayer" parent="."]
+unique_name_in_owner = true
+
+[node name="Camera" type="Camera2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Hud" type="CanvasLayer" parent="."]
+
+[node name="Status" type="PanelContainer" parent="Hud"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -112.0
+offset_right = 12.0
+offset_bottom = -12.0
+grow_vertical = 0
+script = ExtResource("2_hud")
+
+[node name="Margin" type="MarginContainer" parent="Hud/Status"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="StatusLabel" type="Label" parent="Hud/Status/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "generating..."
