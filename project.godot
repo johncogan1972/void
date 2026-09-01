@@ -23,6 +23,12 @@ ContentBoot="*res://src/Content/ContentBoot.cs"
 
 [display]
 
+; Base resolution is Steam Deck native (GDD 9.4, 11.3): the Deck is a day-one
+; first-class target, so it is the size the game is designed at rather than a
+; size it is squeezed down to. At 16px tiles this is 80 x 50 tiles on screen at
+; 1x zoom.
+window/size/viewport_width=1280
+window/size/viewport_height=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
