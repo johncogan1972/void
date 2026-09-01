@@ -167,8 +167,13 @@ public partial class WorldViewer : Node2D
     /// Vertical centring follows the heightmap rather than the middle of the
     /// world: the surface is what there is to look at, and a window centred on
     /// world height/2 would open on solid stone.
+    ///
+    /// <para>Public because it is this scene's one verb — "look at that column"
+    /// is the whole interface — and because screenshot tooling and later Phase 3
+    /// tickets drive the viewer through it rather than by synthesising input
+    /// events.</para>
     /// </remarks>
-    private void RecentreOn(int column)
+    public void RecentreOn(int column)
     {
         int widthTiles = _context.SizePreset.WidthTiles;
         int heightTiles = _context.SizePreset.HeightTiles;
