@@ -56,6 +56,7 @@ public static class WorldTypeRegistryLoader
         {
             ValidateProportions(worldType);
             ValidateHeightmapOctaves(worldType);
+            ValidateCaves(worldType);
             ValidateTerrain(worldType);
             ValidateSizePresets(worldType);
 
@@ -113,6 +114,58 @@ public static class WorldTypeRegistryLoader
     /// names the world type, because a stack trace out of a struct constructor
     /// does not tell an author which data file to open.
     /// </summary>
+    /// <summary>
+    /// Rejects an unusable worm width range (VOID-065).
+    /// </summary>
+    /// <remarks>
+    /// An inverted range is always a typo, and silently swapping the ends would
+    /// carve a world the author did not ask for and had no way to notice. A
+    /// non-positive minimum is worse: a worm of zero width carves nothing, so the
+    /// layer would come out solid and look like caves that were configured but
+    /// never fired.
+    /// </remarks>
+    private static void ValidateCaves(WorldTypeDefinition worldType)
+    {
+        if (worldType.Caves is not CaveConfig caves)
+        {
+            return;
+        }
+
+        foreach (WorldLayer layer in
+            (ReadOnlySpan<WorldLayer>)[
+                WorldLayer.Outside, WorldLayer.Underground, WorldLayer.Deep, WorldLayer.Void])
+        {
+            if (caves.For(layer) is not WormConfig worms)
+            {
+                continue;
+            }
+
+            if (!double.IsFinite(worms.RadiusMin) || worms.RadiusMin <= 0.0)
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' caves.{layer} has radius_min "
+                    + $"{worms.RadiusMin}; a tunnel half-width must be finite and above zero, or "
+                    + "its worms carve nothing.");
+            }
+
+            if (worms.RadiusMax < worms.RadiusMin)
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' caves.{layer} has radius_max "
+                    + $"{worms.RadiusMax} below radius_min {worms.RadiusMin}; each worm draws its "
+                    + "width from [min, max], so the range must not be inverted.");
+            }
+
+            if (!double.IsFinite(worms.RadiusWavelength) || worms.RadiusWavelength <= 0.0)
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' caves.{layer} has radius_wavelength "
+                    + $"{worms.RadiusWavelength}; it is a distance in worm steps and must be above "
+                    + "zero.");
+            }
+        }
+    }
+
     private static void ValidateHeightmapOctaves(WorldTypeDefinition worldType)
     {
         HeightmapConfig heightmap = worldType.Heightmap;

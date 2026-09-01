@@ -40,8 +40,46 @@ public sealed class WormConfig
     [JsonPropertyName("step_length")]
     public double StepLength { get; init; } = 1.0;
 
-    /// <summary>Tunnel half-width in tiles; spec's <c>radius</c>, typically 1.5-4.0.</summary>
-    public double Radius { get; init; } = 2.0;
+    /// <summary>
+    /// Narrowest tunnel half-width in tiles. JSON key <c>radius_min</c>.
+    ///
+    /// <para>A range rather than a single value because spec §3.3 lists
+    /// <c>radius</c> under "per worm": one value per layer makes every root worm
+    /// in that layer exactly the same width, so a tunnel network reads as
+    /// machine-cut pipe. Each worm draws its own base width from
+    /// [<see cref="RadiusMin"/>, <see cref="RadiusMax"/>].</para>
+    /// </summary>
+    [JsonPropertyName("radius_min")]
+    public double RadiusMin { get; init; } = 1.6;
+
+    /// <summary>
+    /// Widest tunnel half-width in tiles. JSON key <c>radius_max</c>. Must be at
+    /// least <see cref="RadiusMin"/>; equal to it means every worm in the layer
+    /// is the same width, which is legal and occasionally wanted.
+    /// </summary>
+    [JsonPropertyName("radius_max")]
+    public double RadiusMax { get; init; } = 2.8;
+
+    /// <summary>
+    /// How much a tunnel pinches and widens <b>along its own length</b>, as a
+    /// fraction of the worm's base width. JSON key <c>radius_variation</c>;
+    /// 0 gives a tunnel of constant bore.
+    ///
+    /// <para>This is the variation that actually reads as rock. Per-worm width
+    /// alone still gives every individual tunnel a dead constant bore from end to
+    /// end — the eye reads that as extruded, not excavated. 0.35 lets a tunnel
+    /// swell to roughly half again its width and squeeze to about two thirds.</para>
+    /// </summary>
+    [JsonPropertyName("radius_variation")]
+    public double RadiusVariation { get; init; } = 0.35;
+
+    /// <summary>
+    /// Wavelength of that pinching, in worm steps. JSON key
+    /// <c>radius_wavelength</c>. Short values make a lumpy tube; long ones make
+    /// a tunnel that opens out and closes down over its length.
+    /// </summary>
+    [JsonPropertyName("radius_wavelength")]
+    public double RadiusWavelength { get; init; } = 28.0;
 
     /// <summary>
     /// Maximum heading change per step, in radians; spec's <c>turn_rate</c>,

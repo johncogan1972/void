@@ -113,8 +113,13 @@ public static class WormCarver
                     continue;
                 }
 
+                // Each worm draws its own base width, so a layer's tunnels are not
+                // all the same bore (spec §3.3 lists radius as a per-worm value).
+                double baseRadius = config.RadiusMin
+                    + (wormRng.NextDouble() * (config.RadiusMax - config.RadiusMin));
+
                 Walk(
-                    wormRng, direction, config, config.StepCount, config.Radius, depth: 0,
+                    wormRng, direction, config, config.StepCount, baseRadius, depth: 0,
                     startX: startX,
                     startY: wormRng.NextInt(spawnTop, bottomRow + 1),
                     startHeading: wormRng.NextInt(WormDirections.Count),
@@ -167,6 +172,13 @@ public static class WormCarver
         // typed a small number meant.
         int maxTurn = Math.Max(1, (int)(config.TurnRate / WormDirections.RadiansPerStep));
 
+        // Per-worm field, so two tunnels crossing the same rock pinch
+        // independently rather than in step. Sampled along the worm's own step
+        // count, which is what makes the variation follow the tunnel rather than
+        // the ground it happens to pass through.
+        FbmNoise girth = new(
+            rng.Derive("girth"), new FbmParameters(2, 1.0 / config.RadiusWavelength));
+
         double px = startX;
         double py = startY;
 
@@ -212,7 +224,14 @@ public static class WormCarver
 
             x.Add(px);
             y.Add(py);
-            radius.Add(wormRadius);
+
+            // Pinch and swell along the length. Floored at 1.0 so a tunnel can
+            // narrow without ever closing to nothing -- a worm that sealed itself
+            // mid-walk would leave a plug of rock across the only route through,
+            // which is exactly the kind of dead end reachability has to repair.
+            radius.Add(Math.Max(
+                1.0,
+                wormRadius * (1.0 + (config.RadiusVariation * girth.Sample(step)))));
 
             if (depth < config.MaxBranchDepth
                 && branches < config.MaxBranches
