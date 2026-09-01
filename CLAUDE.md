@@ -168,8 +168,12 @@ truncates error dumps, which the raw commands do not.
 Rules:
 - A "Cannot go into subdir" error means the project root resolved wrong. Stop; do not retry.
 - --import can exit 0 while printing SCRIPT ERROR / ERROR: to stderr. Grep the output, don't trust $?.
-- Rung 6 (smoke) boots `run/main_scene` headless. `scenes/main_menu.tscn` is a
-  placeholder kept so this rung has something to boot; replace it, don't delete it.
+- Rung 6 (smoke) boots `run/main_scene` headless, which is
+  `scenes/world_viewer.tscn` (VOID-057) — so that rung generates a world, builds
+  the TileSets and paints a window every run. It is the only coverage the
+  Godot-touching render path has. `scenes/main_menu.tscn` is still tracked as the
+  placeholder it always was; it is no longer what boots, so don't delete it and
+  don't assume it runs.
 - `tests/test_example.gd` is a template. Delete it once real tests exist.
 - `src/BuildInfo.cs` proves the C# assembly loads. Delete it once real C# exists.
 - `Void.Tests/HarnessTests.cs` proves the xunit harness reaches the game assembly.
