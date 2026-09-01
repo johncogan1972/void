@@ -14,9 +14,10 @@ namespace Void;
 /// heightmap would move every ore in the world.</para>
 ///
 /// <para>It also carries <i>phase output</i> that later phases read — the
-/// heightmap (VOID-047) and the surface biome map (VOID-048). Those members are the only mutable state here,
-/// and they follow one rule: set once, by the phase that owns them, before any
-/// later phase runs, and reading one that is unset throws.</para>
+/// heightmap (VOID-047), the surface biome map (VOID-048) and the carved cave
+/// network (VOID-065). Those members are the only mutable state here, and they
+/// follow one rule: set once, by the phase that owns them, before any later phase
+/// runs, and reading one that is unset throws.</para>
 ///
 /// <para>Engine-free: no Godot types, so the whole pipeline is testable under
 /// plain <c>dotnet test</c>.</para>
@@ -182,6 +183,50 @@ public sealed class GenerationContext
         }
 
         _biomeMap = biomeMap;
+    }
+
+    /// <summary>
+    /// Phase output, once <see cref="SetCaveNetwork"/> has run. Null only before
+    /// Phase 2 step 7.
+    /// </summary>
+    private CaveNetwork? _caveNetwork;
+
+    /// <summary>
+    /// Phase 2's carved tunnel network, read by terrain materialisation.
+    ///
+    /// <para>Same rule as <see cref="Heightmap"/> and <see cref="BiomeMap"/>:
+    /// written once, by the phase that owns it, before any later phase runs.
+    /// Reading it early throws rather than returning an empty network, because a
+    /// world quietly materialised with no caves looks generated and is
+    /// wrong — solid rock is indistinguishable from "carving has not run yet"
+    /// once the tiles exist.</para>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">If the cave phase has not run yet.</exception>
+    public CaveNetwork CaveNetwork =>
+        _caveNetwork ?? throw new InvalidOperationException(
+            "Caves have not been carved yet. Phase 2 step 7 must run before any phase that "
+            + "materialises tiles; see world-generation-spec §6 for the phase order.");
+
+    /// <summary>
+    /// Records the carved network. Called by <see cref="WormCarver"/>'s phase
+    /// step and by nothing else.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// If a network is already set. Fatal rather than an overwrite: two phases
+    /// each believing they own carving is a pipeline-ordering bug, and the second
+    /// write would silently discard the first's tunnels.
+    /// </exception>
+    public void SetCaveNetwork(CaveNetwork caveNetwork)
+    {
+        ArgumentNullException.ThrowIfNull(caveNetwork);
+
+        if (_caveNetwork is not null)
+        {
+            throw new InvalidOperationException(
+                "The cave network is already set. It is written once, by the phase that owns it.");
+        }
+
+        _caveNetwork = caveNetwork;
     }
 
     /// <summary>

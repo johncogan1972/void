@@ -62,6 +62,16 @@ public sealed class WorldTypeDefinition : ICrossRegistryValidated
         BiomeClassificationConfig.Default;
 
     /// <summary>
+    /// Cave generation settings (VOID-065). JSON key <c>caves</c>.
+    ///
+    /// <para>Null means the world generates solid below the surface, which is
+    /// what every world did before carving existed — so absence is exactly
+    /// backwards compatible, and is also a legitimate choice for a world type
+    /// that wants no caves.</para>
+    /// </summary>
+    public CaveConfig? Caves { get; init; }
+
+    /// <summary>
     /// Terrain materialisation tuning for Phase 2 step 5: the fallback
     /// subsurface band thickness for biomes that state none. Defaults to
     /// <see cref="TerrainConfig.Default"/>, which is a usable value rather than

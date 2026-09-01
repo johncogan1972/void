@@ -152,6 +152,12 @@ public static class TerrainMaterializer
             }
         }
 
+        // Carving is subtractive and therefore strictly after the fill: running it
+        // first would put the rock straight back. It only clears blocks -- walls
+        // survive, so a tunnel opens onto the biome's background rather than onto
+        // a hole through to nothing (cave-generation-spec §3.2).
+        context.CaveNetwork.CarveInto(chunk);
+
         chunk.BiomePrimary = DominantBiomeNumericId(biomeMap, originX, widthTiles, biomes);
         chunk.LayerPrimary = LayerAt(originY, boundaries);
 

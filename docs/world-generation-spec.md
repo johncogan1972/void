@@ -1,6 +1,6 @@
 # World Generation — Feature Spec
 
-**Version:** 0.8
+**Version:** 0.9
 **Status:** Draft
 **Companion to:** GDD §3, §4
 **Sub-specs:** `world-data-model-spec.md`, `cave-generation-spec.md`
@@ -140,7 +140,19 @@ Generation runs as five sequential phases. Each phase is deterministic, seeded f
 
     Everything after it carves, floods or scatters *into* these tiles, which is why it sits at the head of Phase 2 rather than at the end of Phase 1: Phase 1 is structural and produces arrays, and macro features (step 6) still operate on the heightmap rather than on tiles.
 6. **Macro features.** Overlay mountain ranges, valleys, plateaus, oceans onto the heightmap using low-frequency noise.
-7. **Cave carving.** Hybrid system (see §7).
+7. **Cave carving.** Hybrid system (see §7). Perlin worms are implemented (VOID-065); cellular-automata caverns are not yet.
+
+    **Worms are global; materialisation is pull-based.** A worm walks hundreds of tiles across many chunks, while step 5 is deliberately a pure function of the chunk coordinate — which is what lets a handful of chunks be built without generating a world's worth of tiles. The work is therefore split: this step computes worm *paths* for the whole world and puts them on the context as phase output, and *rasterising* them into tiles happens per chunk inside step 5. Paths are cheap; rasterising is not. Nothing downstream may hold a world-sized carved mask, or that property is lost.
+
+    Each worm derives its stream from `phase2.caves` **by index**, so a worm's path is a function of the seed and its index alone: adding a worm to a layer cannot move the worms already there.
+
+    Headings are integer indices into a table of 128 unit vectors written as literals, never `cos`/`sin` — §14.1 bans transcendental calls here, and a single one in a step loop would make terrain differ between platforms on the same seed. The heading is **accumulated as a fraction of a step** and quantised only for the table lookup: rounding each turn to a whole step discards every turn smaller than one, and since fBm output clusters near zero that produces worms running dead straight between occasional sharp corners rather than the graceful bend §3.1 asks for.
+
+    Carving clears blocks and **leaves walls standing** (`cave-generation-spec` §3.2), so a tunnel opens onto the biome's background rather than onto a hole through to nothing.
+
+    Spec §3.2's "terminate on collision with an existing tunnel" is **deliberately not implemented**: knowing what is already carved means holding a world-sized carved mask while worms walk, which is exactly the global state this design avoids. Worms pass through each other and intersections open out rather than dead-end.
+
+    Measured open space on the shipped home world, small preset: outside 0.3%, underground 14%, deep 21%, void 10–13%.
 8. **Water simulation.** Place lakes in heightmap depressions; rivers flow from high to low along gradient; underground reservoirs placed in eligible caverns. Water is placed at gen time and settled to a stable state.
 
 ### Phase 3 — Composition

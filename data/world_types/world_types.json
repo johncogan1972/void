@@ -142,6 +142,68 @@
       "default_subsurface_depth": 4
     },
     "size_preset": "medium",
+    // Phase 2 step 7 cave carving (VOID-065, cave-generation-spec §3 and §6).
+    // Perlin worms only; cellular-automata caverns are a separate subsystem and
+    // will bring their own block rather than overloading these fields.
+    //
+    // Omit "caves" entirely for a world that generates solid below the surface.
+    "caves": {
+      // The field that bends every worm as it walks. One field shared by all of
+      // them on purpose: worms crossing the same rock then bend the same way, so
+      // a tunnel network reads as following the ground rather than as a set of
+      // unrelated squiggles. Frequency is spec §3.3's noise_scale and is the
+      // number that matters most here -- higher jitters, lower runs straight.
+      "worm_direction_noise": { "octaves": 2, "frequency": 0.02 },
+
+      // Densities are spec §6 restated per 1000 columns: "one worm per 40
+      // columns" is 25. Expressed as a density rather than a count so the same
+      // numbers mean the same caves at every size preset.
+
+      // Spec §6.1: very low, and only as occasional tunnel mouths leading down.
+      // Outside is meant to be traversed on the surface, not underground.
+      "outside": {
+        "worms_per_1000_columns": 2.0,
+        "step_count": 160, "step_length": 1.0,
+        "radius_min": 1.6, "radius_max": 2.6,
+        "radius_variation": 0.35, "radius_wavelength": 26.0,
+        "turn_rate": 0.20, "branch_chance": 0.0,
+        "max_branches": 0, "max_branch_depth": 0, "branch_scale": 0.6
+      },
+      // Spec §6.2: the familiar mining feel -- moderate, frequent branching.
+      "underground": {
+        "worms_per_1000_columns": 36.0,
+        "step_count": 220, "step_length": 1.0,
+        // Per-worm width range, then how much each tunnel pinches and swells
+        // along its own length. A single radius makes every tunnel in the layer
+        // the same bore end to end, which reads as pipe rather than as rock.
+        "radius_min": 1.6, "radius_max": 3.0,
+        "radius_variation": 0.35, "radius_wavelength": 28.0,
+        "turn_rate": 0.18, "branch_chance": 0.010,
+        "max_branches": 2, "max_branch_depth": 2, "branch_scale": 0.6
+      },
+      // Spec §6.3: dangerous exploration -- dense, overlapping, complex.
+      "deep": {
+        "worms_per_1000_columns": 40.0,
+        "step_count": 260, "step_length": 1.0,
+        "radius_min": 1.8, "radius_max": 3.6,
+        "radius_variation": 0.40, "radius_wavelength": 32.0,
+        "turn_rate": 0.16, "branch_chance": 0.010,
+        "max_branches": 2, "max_branch_depth": 2, "branch_scale": 0.65
+      },
+      // Spec §6.4: sparse but longer -- narrow connections through dead rock.
+      // The caverns they are meant to join up are a later ticket, so for now
+      // this layer is the tunnels alone.
+      "void": {
+        "worms_per_1000_columns": 17.0,
+        "step_count": 420, "step_length": 1.0,
+        // Wider spread and slower pinching: void tunnels are long connections
+        // between chambers, so their variation wants to read over a distance.
+        "radius_min": 1.6, "radius_max": 3.4,
+        "radius_variation": 0.40, "radius_wavelength": 44.0,
+        "turn_rate": 0.12, "branch_chance": 0.006,
+        "max_branches": 1, "max_branch_depth": 1, "branch_scale": 0.7
+      }
+    },
     "size_presets": [
       { "id": "small", "width_tiles": 4200, "height_tiles": 1200 },
       { "id": "medium", "width_tiles": 6400, "height_tiles": 1800 },

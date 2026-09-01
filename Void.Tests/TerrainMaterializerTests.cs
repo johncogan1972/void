@@ -79,10 +79,15 @@ public class TerrainMaterializerTests
     }
 
     /// <summary>
-    /// No gaps and no floating rows: every tile above the surface is air, every
-    /// tile from the surface down is solid. Cave carving in W5 subtracts from
-    /// this, so a hole here becomes a hole in the finished world that nothing
-    /// downstream would flag.
+    /// No gaps and no floating rows: every tile above the surface is air, and
+    /// every tile from the surface down is solid <b>except where a tunnel was
+    /// carved</b> (VOID-065).
+    ///
+    /// <para>The exception is stated against the cave network rather than waived,
+    /// which keeps the assertion sharp: below-surface air is allowed only where
+    /// carving put it, so a fill bug that left a hole somewhere no worm went
+    /// still fails here. Without that, the whole below-surface half of this test
+    /// would have had to be dropped when carving landed.</para>
     /// </summary>
     [Fact]
     public void EveryColumnIsAirAboveTheSurfaceAndSolidBelowIt()
@@ -120,9 +125,13 @@ public class TerrainMaterializerTests
                     {
                         Assert.True(tile.IsAir, $"Column {worldX} row {worldY} is above the surface ({surfaceY}) but is not air.");
                     }
+                    else if (!context.CaveNetwork.IsCarved(worldX, worldY))
+                    {
+                        Assert.False(tile.IsAir, $"Column {worldX} row {worldY} is at or below the surface ({surfaceY}), was not carved, but is air.");
+                    }
                     else
                     {
-                        Assert.False(tile.IsAir, $"Column {worldX} row {worldY} is at or below the surface ({surfaceY}) but is air.");
+                        Assert.True(tile.IsAir, $"Column {worldX} row {worldY} was carved but is still solid.");
                     }
                 }
             }
@@ -160,23 +169,39 @@ public class TerrainMaterializerTests
                 int chunkY = surfaceY / Chunk.Height;
                 Chunk chunk = TerrainMaterializer.MaterializeChunk(context, bounds, chunkX, chunkY);
 
-                Assert.Equal(
-                    blocks[biome.Palette.SurfaceBlock].NumericId,
-                    chunk[localX, surfaceY % Chunk.Height].BlockId);
+                // Carved tiles are skipped throughout (VOID-065). This test is
+                // about which palette the fill chooses, and a tunnel legitimately
+                // replaces that block with air -- asserting the block survived
+                // would be asserting that carving does not work. Which rows a
+                // tunnel takes is WormCarverTests' business.
+                if (!context.CaveNetwork.IsCarved(worldX, surfaceY))
+                {
+                    Assert.Equal(
+                        blocks[biome.Palette.SurfaceBlock].NumericId,
+                        chunk[localX, surfaceY % Chunk.Height].BlockId);
+                }
 
                 // The subsurface band, then the first row past it. Rows are read
                 // through a chunk lookup by world row so a band that straddles a
                 // chunk boundary is still checked.
                 for (int offset = 1; offset <= depth; offset++)
                 {
+                    if (context.CaveNetwork.IsCarved(worldX, surfaceY + offset))
+                    {
+                        continue;
+                    }
+
                     Assert.Equal(
                         blocks[biome.Palette.SubsurfaceBlock].NumericId,
                         BlockAt(context, bounds, chunkX, localX, surfaceY + offset));
                 }
 
-                Assert.Equal(
-                    blocks[biome.Palette.BaseBlock].NumericId,
-                    BlockAt(context, bounds, chunkX, localX, surfaceY + depth + 1));
+                if (!context.CaveNetwork.IsCarved(worldX, surfaceY + depth + 1))
+                {
+                    Assert.Equal(
+                        blocks[biome.Palette.BaseBlock].NumericId,
+                        BlockAt(context, bounds, chunkX, localX, surfaceY + depth + 1));
+                }
             }
         }
     }
@@ -250,9 +275,17 @@ public class TerrainMaterializerTests
             BiomeDefinition underground =
                 biomes[context.BiomeMap.UndergroundBiomeAt(worldX, biomes)];
 
-            Assert.Equal(
-                blocks[underground.Palette.BaseBlock].NumericId,
-                chunk[localX, worldY % Chunk.Height].BlockId);
+            // The block is only asserted where no tunnel took it (VOID-065).
+            // The wall is asserted either way, and that is the point: carving
+            // clears blocks and leaves walls standing, so a carved tile here must
+            // still carry the underground variant's wall.
+            if (!context.CaveNetwork.IsCarved(worldX, worldY))
+            {
+                Assert.Equal(
+                    blocks[underground.Palette.BaseBlock].NumericId,
+                    chunk[localX, worldY % Chunk.Height].BlockId);
+            }
+
             Assert.Equal(
                 context.Content.Walls[underground.Palette.WallDefault].NumericId,
                 chunk[localX, worldY % Chunk.Height].WallId);
