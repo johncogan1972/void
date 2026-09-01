@@ -65,5 +65,19 @@ public sealed class BiomeClassificationConfig
     /// the entire unit square; <see cref="WorldTypeRegistryLoader"/> proves it at
     /// load, so an unclassifiable column is impossible rather than caught late.
     /// </summary>
+    /// <summary>
+    /// Width range of the interleaved band at a biome boundary (VOID-060). JSON
+    /// key <c>transition</c>.
+    ///
+    /// <para>Null means hard seams: a biome changes completely between one
+    /// column and the next. That was the behaviour before this field existed, so
+    /// absence is exactly backwards compatible.</para>
+    ///
+    /// <para>Distinct from <see cref="BlendColumns"/>, which moves a boundary
+    /// and does not soften it. This is what makes the boundary a band rather
+    /// than a line.</para>
+    /// </summary>
+    public BiomeTransitionConfig? Transition { get; init; }
+
     public IReadOnlyList<BiomeClassificationRule> Rules { get; init; } = [];
 }

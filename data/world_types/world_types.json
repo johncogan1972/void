@@ -101,6 +101,28 @@
       // their left-hand neighbour, which is what stops a boundary from
       // scattering single-column islands of the wrong biome.
       "min_run_columns": 16,
+      // Interleaved band at each boundary, as a half-width in columns
+      // (VOID-060). Without this a biome changes completely between one column
+      // and the next -- and because the seam runs the full height of the world,
+      // that reads as a straight vertical cut through the terrain rather than
+      // as a border between two places.
+      //
+      // Every boundary draws its own width from this range. A single width
+      // would trade one uniform artefact for another: every border in the world
+      // would be the same border. The low end is deliberately small so some
+      // boundaries stay nearly hard, which is itself part of the variety.
+      //
+      // A band is clamped to half the run on either side of it, so two nearby
+      // boundaries can never overlap; max_columns is therefore an upper bound on
+      // intent, not a promise about any one border.
+      //
+      // Blending happens per *tile*, not per column: every column still belongs
+      // to exactly one biome, so min_run_columns above is untouched and the two
+      // features do not fight. See BiomeMap.BiomeAt.
+      "transition": {
+        "min_columns": 4,
+        "max_columns": 40
+      },
       // MVP's three surface biomes. Frostreach takes the cold third at any
       // humidity; the warm two-thirds split on humidity into forest and meadow.
       "rules": [

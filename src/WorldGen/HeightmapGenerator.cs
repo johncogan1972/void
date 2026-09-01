@@ -76,11 +76,23 @@ public static class HeightmapGenerator
 			DetailField? field = ResolveDetail(
 				detailFields, biomeMap[x], biomes, config, detailRoot);
 
-			// SampleUnit is [0, 1]; the detail field is re-centred to [-1, 1] so
-			// it displaces the surface both ways rather than only downwards.
-			double detailRows = field is null
-				? 0.0
-				: ((field.Noise.SampleUnit(x) * 2.0) - 1.0) * field.AmplitudeRows;
+			double detailRows = Displace(field, x);
+
+			// Inside a transition band, crossfade the two biomes' roughness rather
+			// than dithering it (VOID-060). Roughness is a continuous quantity and the
+			// surface is a single row per column, so picking one biome's displacement
+			// or the other's at random would read as noise where a gradient is wanted
+			// -- and would put a one-row cliff wherever the choice flipped. The weight
+			// runs 0 -> 0.5 -> 0 across the band while the column's own biome changes
+			// at its centre, which makes the crossfade continuous through the seam.
+			if (biomeMap.BlendBiomeAt(x) is string blendId)
+			{
+				double weight = biomeMap.BlendWeightAt(x);
+				DetailField? blendField =
+					ResolveDetail(detailFields, blendId, biomes, config, detailRoot);
+
+				detailRows = ((1.0 - weight) * detailRows) + (weight * Displace(blendField, x));
+			}
 
 			surfaceY[x] = MapIntoBand(noise.SampleUnit(x), detailRows, band);
 		}
@@ -88,6 +100,19 @@ public static class HeightmapGenerator
 		LimitSlope(surfaceY, config.MaxColumnDelta, band);
 		return new Heightmap(surfaceY, band);
 	}
+
+	/// <summary>
+	/// One biome's roughness displacement at a column, in rows, or 0 where that
+	/// biome is smooth.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="FbmNoise.SampleUnit(double)"/> is [0, 1]; it is re-centred to
+	/// [-1, 1] so the field displaces the surface both ways rather than only
+	/// downwards, which would raise the whole world as a side effect of roughening
+	/// it.
+	/// </remarks>
+	private static double Displace(DetailField? field, int x) =>
+		field is null ? 0.0 : ((field.Noise.SampleUnit(x) * 2.0) - 1.0) * field.AmplitudeRows;
 
 	/// <summary>
 	/// One biome's resolved roughness: the field to sample and how many rows it

@@ -111,6 +111,22 @@ public static class TerrainMaterializer
             ResolvedPalette undergroundPalette =
                 Resolve(palettes, biomeMap.UndergroundBiomeAt(worldX, biomes), context, biomes);
 
+            // Inside a transition band the column also carries the biome on the
+            // other side (VOID-060). Both palettes are resolved once per column
+            // and the choice is made per tile, rather than resolving inside the
+            // row loop: the pair is fixed for the whole column, and only which of
+            // the two applies varies down it.
+            string? blendId = biomeMap.BlendBiomeAt(worldX);
+            ResolvedPalette blendSurfacePalette = surfacePalette;
+            ResolvedPalette blendUndergroundPalette = undergroundPalette;
+
+            if (blendId is not null)
+            {
+                blendSurfacePalette = Resolve(palettes, blendId, context, biomes);
+                blendUndergroundPalette = Resolve(
+                    palettes, BiomeMap.UndergroundVariantOf(blendId, biomes), context, biomes);
+            }
+
             for (int localY = 0; localY < Chunk.Height; localY++)
             {
                 int worldY = originY + localY;
@@ -122,8 +138,17 @@ public static class TerrainMaterializer
                     break;
                 }
 
+                // Deterministic from the coordinate, not from a draw, so this
+                // step stays a pure function of the chunk coordinate and needs no
+                // stream of its own -- see BiomeMap.TakesBlendAt.
+                bool blended = blendId is not null && biomeMap.TakesBlendAt(worldX, worldY);
+
                 chunk.Tiles[Chunk.Index(localX, localY)] = TileAt(
-                    worldY, surfaceY, boundaries, surfacePalette, undergroundPalette);
+                    worldY,
+                    surfaceY,
+                    boundaries,
+                    blended ? blendSurfacePalette : surfacePalette,
+                    blended ? blendUndergroundPalette : undergroundPalette);
             }
         }
 

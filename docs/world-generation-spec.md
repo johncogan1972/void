@@ -1,6 +1,6 @@
 # World Generation — Feature Spec
 
-**Version:** 0.7
+**Version:** 0.8
 **Status:** Draft
 **Companion to:** GDD §3, §4
 **Sub-specs:** `world-data-model-spec.md`, `cave-generation-spec.md`
@@ -109,6 +109,14 @@ Generation runs as five sequential phases. Each phase is deterministic, seeded f
 3. **Layer boundaries.** Compute row ranges for each layer from the world size + configured proportions. Written into world metadata.
 4. **Biome map.** 2D noise + rule-based classification across the surface strip. Each surface column is assigned a primary biome. Biome transitions blend over a small horizontal band.
 
+    The blend is **per tile, not per column** (VOID-060). Every column still belongs to exactly one biome, so `min_run_columns` is untouched and the two features cannot fight — the interleave lives below the resolution that rule operates at. Near a boundary a column also records the biome on the other side, where it sits in the band as a signed fraction, and which boundary it belongs to; a seeded field then displaces the boundary from row to row, and each tile takes whichever biome its side of that displaced edge belongs to.
+
+    Two rejected alternatives, recorded because both look right on paper. Hashing each tile independently is white noise: the band comes out as salt-and-pepper speckle and reads as a rendering fault. Thresholding a coherent field against a per-column probability clumps correctly but collapses the band, because fBm concentrates near its midpoint and the low probabilities near a band's edge are almost never met. Displacing the boundary gives every row one clean edge in a different place, so the two biomes interlock with no islands and no speckle.
+
+    **Each boundary draws its own width** from `transition.min_columns` / `max_columns`; a single width would make every border in a world look like the same border. A band is clamped to half the run on either side of it, so two nearby boundaries can never overlap — the configured maximum is an upper bound on intent, not a promise about any one border.
+
+    Distinct from `blend_columns`, which offsets the sample position and therefore *moves* a boundary without softening it: that field is far lower frequency than a boundary is wide, so across a seam it is effectively constant.
+
     Runs **before** the heightmap (VOID-061). It reads the climate fields and never the surface, so nothing about it depended on the heightmap existing; the previous ordering was convention rather than a dependency.
 2. **Heightmap.** 1D noise across world width defines base surface elevation. Multiple octaves for terrain variety. Output: array of surface Y-values, one per column.
 
@@ -119,6 +127,8 @@ Generation runs as five sequential phases. Each phase is deterministic, seeded f
     Without the detail term the surface changes by at most one row per column and is flat in ~81% of them, so quantising a gentle ramp to whole rows lands the steps at even intervals and the ground reads as a **staircase** (VOID-061, found in the VOID-057 viewer). The detail term moves where each step falls, which is what breaks the regularity — it is not there to make terrain steeper on average.
 
     Roughness is authored per biome as `surface_detail` on the biome, falling back to the world type's `heightmap.detail`. Each biome samples a **decorrelated field**, derived per biome id, so one biome's roughness is not another's at a different amplitude.
+
+    Across a transition band the two biomes' roughness is **crossfaded, not dithered** (VOID-060). The surface is a single row per column, so choosing one biome's displacement or the other's at random would read as noise where a gradient is wanted — and would put a one-row cliff wherever the choice flipped.
 
     `max_column_delta` remains a hard cap enforced by a left-to-right limiter, and is a **safety net rather than a shaping tool**: on shipped values it alters 0 of 4,199 columns. It exists so that no octave stack a data file can express — including one authored later — can produce a single-column cliff.
 
