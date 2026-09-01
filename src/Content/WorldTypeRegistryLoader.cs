@@ -127,6 +127,35 @@ public static class WorldTypeRegistryLoader
                 $"World type '{worldType.Id}' has an invalid heightmap octave stack: {ex.Message}");
         }
 
+        // The detail stack is validated the same way and for the same reason: one
+        // definition of a valid octave stack, and a message that names the world
+        // type instead of a stack trace out of a struct constructor.
+        if (heightmap.Detail is SurfaceDetailConfig detail)
+        {
+            try
+            {
+                detail.ToFbmParameters();
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' has an invalid heightmap.detail octave stack: "
+                    + ex.Message);
+            }
+
+            // Rejected rather than treated as its absolute value: a negative
+            // amplitude generates the same terrain as its positive counterpart
+            // with the field mirrored, so it is always a typo and never a choice.
+            if (!double.IsFinite(detail.AmplitudeRows) || detail.AmplitudeRows < 0.0)
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' heightmap.detail.amplitude_rows is "
+                    + $"{detail.AmplitudeRows}; it is a peak displacement in rows and must be "
+                    + "finite and not negative. Omit the detail block, or set it to 0, for a "
+                    + "smooth surface.");
+            }
+        }
+
         if (heightmap.MaxColumnDelta < 1)
         {
             throw new ContentLoadException(

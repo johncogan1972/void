@@ -41,7 +41,31 @@
       "surface_bottom_fraction": 0.80,
       // Rows of elevation change allowed between adjacent columns. 3 is a
       // steep-but-walkable slope; raising it lets cliffs form.
-      "max_column_delta": 3
+      "max_column_delta": 3,
+      // Surface roughness, added on top of the octave stack above in rows
+      // (VOID-061). Without it the surface changes by at most one row per
+      // column and is flat in 81% of them, so rounding a gentle ramp to whole
+      // rows lands the steps at even intervals and the ground reads as a
+      // staircase. This is a separate field rather than more octaves because
+      // fBm normalises: roughening the stack above pays for texture with hill
+      // amplitude, and measured, persistence 0.70 cut the world's elevation
+      // range from 83 rows to 71.
+      //
+      // This is the default. A biome overrides it with its own surface_detail;
+      // see data/biomes/biomes.json.
+      "detail": {
+        "octaves": 2,
+        // In lattice cells per tile column, like frequency above. 1/16 puts a
+        // feature every sixteen columns -- short enough to break up a slope,
+        // long enough not to read as noise.
+        "frequency": 0.0625,
+        "lacunarity": 2.0,
+        "persistence": 0.5,
+        // Peak displacement in rows, not a fraction of the band: the staircase
+        // is a row-quantisation artefact, so the useful unit is rows, and a
+        // fraction would silently change this between size presets.
+        "amplitude_rows": 4.0
+      }
     },
     // Phase 1 step 4 surface biomes (VOID-048). Two independent low-frequency
     // fields give each column a temperature and a humidity in [0, 1], and the

@@ -6,6 +6,15 @@
   // VOID-023 land their registries.
   {
     "id": "void:meadow",
+      // Rolling grassland: the house default. Gentle enough to walk without
+      // thinking about it, varied enough not to step in a regular rhythm.
+      "surface_detail": {
+        "octaves": 2,
+        "frequency": 0.0625,
+        "lacunarity": 2.0,
+        "persistence": 0.5,
+        "amplitude_rows": 4.0
+      },
     "display_name": "Meadow",
     "layer_category": "surface",
     "palette": {
@@ -90,6 +99,15 @@
     // actually separate the two are W8, W8 and W6 respectively. That is
     // expected, not a defect -- see VOID-048's scope caveat.
     "id": "void:forest",
+      // Slightly rougher than meadow -- forest floor undulates around roots
+      // and deadfall rather than lying flat.
+      "surface_detail": {
+        "octaves": 2,
+        "frequency": 0.0625,
+        "lacunarity": 2.0,
+        "persistence": 0.5,
+        "amplitude_rows": 5.0
+      },
     "display_name": "Forest",
     "layer_category": "surface",
     "palette": {
@@ -165,6 +183,15 @@
     // biome-content-spec §3.6. The steep mountains and high cave density that
     // define Frostreach are W4 and W5; here it is snow and ice.
     "id": "void:frostreach",
+      // Roughest of the three. The extra octave and amplitude give drifts and
+      // crags rather than the smooth white slope snow would otherwise be.
+      "surface_detail": {
+        "octaves": 3,
+        "frequency": 0.0625,
+        "lacunarity": 2.0,
+        "persistence": 0.5,
+        "amplitude_rows": 6.0
+      },
     "display_name": "Frostreach",
     "layer_category": "surface",
     "palette": {

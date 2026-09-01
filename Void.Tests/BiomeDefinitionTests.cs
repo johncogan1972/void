@@ -100,7 +100,8 @@ public class BiomeDefinitionTests : IDisposable
         string id = "test:field",
         string surfaceBlock = "void:grass",
         string wallDefault = "void:dirt_wall",
-        string? undergroundVariant = "test:hollows") =>
+        string? undergroundVariant = "test:hollows",
+        string? surfaceDetail = null) =>
         $$"""
         {
           "id": "{{id}}",
@@ -112,7 +113,7 @@ public class BiomeDefinitionTests : IDisposable
             "base_block": "void:stone",
             "wall_default": "{{wallDefault}}",
             "wall_ambient": []
-          },
+          },{{(surfaceDetail is null ? "" : "\n  \"surface_detail\": " + surfaceDetail + ",")}}
           "underground_variant": {{(undergroundVariant is null ? "null" : $"\"{undergroundVariant}\"")}}
         }
         """;
@@ -651,5 +652,73 @@ public class BiomeDefinitionTests : IDisposable
 
         Assert.Throws<InvalidOperationException>(
             () => RegistryLoader.LoadInto(builder, BiomeSource()));
+    }
+
+    /// <summary>
+    /// Surface roughness reaches the definition from JSON (VOID-061). If this
+    /// goes red the field is silently dropped and every biome generates at the
+    /// world type's default roughness, which looks like terrain rather than like
+    /// a bug.
+    /// </summary>
+    [Fact]
+    public void ShippedSurfaceBiomesCarryTheirOwnRoughness()
+    {
+        Registry<BiomeDefinition> biomes = ContentPaths.Biomes();
+
+        // The three surface biomes each state a roughness; the three underground
+        // variants deliberately do not, because a variant never owns a column of
+        // sky and a value there would never be sampled.
+        Assert.NotNull(biomes["void:meadow"].SurfaceDetail);
+        Assert.NotNull(biomes["void:forest"].SurfaceDetail);
+        Assert.NotNull(biomes["void:frostreach"].SurfaceDetail);
+
+        Assert.Null(biomes["void:root_hollows"].SurfaceDetail);
+        Assert.Null(biomes["void:root_tangle"].SurfaceDetail);
+        Assert.Null(biomes["void:frozen_halls"].SurfaceDetail);
+
+        // The authored intent: meadow is the gentlest ground and Frostreach the
+        // roughest. A tuning pass may move the numbers, but not the ordering --
+        // that ordering is the whole reason the field is per biome.
+        double meadow = biomes["void:meadow"].SurfaceDetail!.AmplitudeRows;
+        double forest = biomes["void:forest"].SurfaceDetail!.AmplitudeRows;
+        double frost = biomes["void:frostreach"].SurfaceDetail!.AmplitudeRows;
+
+        Assert.True(meadow < forest, $"Meadow ({meadow}) should be gentler than forest ({forest}).");
+        Assert.True(forest < frost, $"Forest ({forest}) should be gentler than Frostreach ({frost}).");
+    }
+
+    /// <summary>
+    /// A negative amplitude is always a typo — it produces the same terrain as
+    /// its positive counterpart with the field mirrored — so it is refused at
+    /// load rather than quietly doing something the author did not ask for.
+    /// </summary>
+    [Fact]
+    public void NegativeSurfaceDetailAmplitudeIsRejected()
+    {
+        WriteFile("underground.json", UndergroundJson);
+        WriteFile("surface.json", SurfaceJson(surfaceDetail:
+            """{ "octaves": 2, "frequency": 0.0625, "amplitude_rows": -1.0 }"""));
+
+        ContentLoadException ex = Assert.Throws<ContentLoadException>(LoadTempBiomes);
+
+        Assert.Contains("amplitude_rows", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("test:field", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A bad detail octave stack is refused at load with a message naming the
+    /// biome, so an author is told which file to open instead of getting a stack
+    /// trace out of a struct constructor.
+    /// </summary>
+    [Fact]
+    public void InvalidSurfaceDetailOctavesAreRejected()
+    {
+        WriteFile("underground.json", UndergroundJson);
+        WriteFile("surface.json", SurfaceJson(surfaceDetail:
+            """{ "octaves": 0, "frequency": 0.0625, "amplitude_rows": 4.0 }"""));
+
+        ContentLoadException ex = Assert.Throws<ContentLoadException>(LoadTempBiomes);
+
+        Assert.Contains("test:field", ex.Message, StringComparison.Ordinal);
     }
 }

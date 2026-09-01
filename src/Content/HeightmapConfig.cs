@@ -80,6 +80,20 @@ public sealed class HeightmapConfig
     public int MaxColumnDelta { get; init; } = 3;
 
     /// <summary>
+    /// Optional high-frequency roughness added on top of the base shape
+    /// (VOID-061). JSON key <c>detail</c>.
+    ///
+    /// <para>Null means no detail, which is exactly the surface this generator
+    /// produced before the field existed — the term is additive, so absence and
+    /// a zero amplitude are the same world.</para>
+    ///
+    /// <para>It is a separate field rather than more octaves here because fBm
+    /// trades hill amplitude for roughness; see <see cref="SurfaceDetailConfig"/>
+    /// for the measurements.</para>
+    /// </summary>
+    public SurfaceDetailConfig? Detail { get; init; }
+
+    /// <summary>
     /// Builds the validated octave parameters. Amplitude is deliberately not
     /// configurable: the heightmap consumes
     /// <see cref="FbmNoise.SampleUnit(double)"/> and maps [0, 1] onto the

@@ -85,6 +85,24 @@ public sealed class BiomeDefinition : ICrossRegistryValidated
     /// <see cref="LayerCategory.Underground"/>; both are fatal load errors
     /// otherwise. JSON key <c>underground_variant</c>.
     /// </summary>
+    /// <summary>
+    /// Per-biome surface roughness, overriding the world type's
+    /// <c>heightmap.detail</c> for columns this biome owns (VOID-061). JSON key
+    /// <c>surface_detail</c>.
+    ///
+    /// <para>Null falls back to the world type's setting, which is the right
+    /// default: roughness is a property of terrain first and of biome second, so
+    /// a biome states one only when it wants to differ. Meadow is gentler than
+    /// Frostreach because grassland is not a snowfield, not because every biome
+    /// must have an opinion.</para>
+    ///
+    /// <para>Only read for <b>surface</b> biomes. An underground variant never
+    /// owns a column of sky, so a value here would never be sampled — leave it
+    /// off rather than setting one that does nothing.</para>
+    /// </summary>
+    [JsonPropertyName("surface_detail")]
+    public SurfaceDetailConfig? SurfaceDetail { get; init; }
+
     [JsonPropertyName("underground_variant")]
     public string? UndergroundVariant { get; init; }
 
