@@ -313,11 +313,22 @@ public class TerrainMaterializerTests
         // Scan the whole width for one column of each kind rather than sweeping
         // a fixed prefix: which biome a seed puts in its first chunks is not
         // something this test should depend on.
+        //
+        // Columns inside a transition band are skipped (VOID-060). There, tiles
+        // deliberately take one of two biomes' palettes, so "this column uses its
+        // biome's subsurface depth" is not true tile by tile and asserting it
+        // would be asserting that blending does not work. Blending has its own
+        // tests; this one is about the per-biome depth override.
         int overrideColumn = -1;
         int defaultColumn = -1;
 
         for (int x = 0; x < context.SizePreset.WidthTiles && (overrideColumn < 0 || defaultColumn < 0); x++)
         {
+            if (context.BiomeMap.BlendBiomeAt(x) is not null)
+            {
+                continue;
+            }
+
             bool overrides = biomes[context.BiomeMap[x]].SubsurfaceDepth is not null;
 
             if (overrides && overrideColumn < 0)

@@ -12,14 +12,32 @@ namespace Void;
 /// happens per column, so column order cannot affect the result. Rules are
 /// visited in the authored array order, never registry or hash order.</para>
 ///
-/// <para><b>Seams are ragged, not blended.</b> The output is exactly one biome
-/// per column, so there is nothing to interpolate; instead the sample position
-/// is offset by a low-frequency jitter bounded by
-/// <see cref="BiomeClassificationConfig.BlendColumns"/>, which bends the boundary
-/// left and right as it runs down the world. Dithering between two biomes at a
-/// boundary was rejected for a concrete reason: it manufactures exactly the
-/// single-column islands the run-length rule below then has to destroy, so the
-/// two features would be fighting each other.</para>
+/// <para><b>Boundaries move, and they also blend.</b> Two separate mechanisms,
+/// often confused:</para>
+/// <list type="bullet">
+/// <item><description><see cref="BiomeClassificationConfig.BlendColumns"/> offsets
+/// the sample position by a low-frequency jitter, which <i>moves</i> a boundary.
+/// It cannot soften one: the jitter field is far lower frequency than a boundary
+/// is wide, so over the few columns around a seam it is effectively constant and
+/// simply translates it.</description></item>
+/// <item><description><see cref="BiomeClassificationConfig.Transition"/> gives each
+/// boundary a band in which columns carry a second biome and a weight, and
+/// <see cref="BiomeMap.BiomeAt(int, int)"/> chooses between them <b>per tile</b>
+/// (VOID-060). That is what makes a seam an interleaved band rather than a
+/// line.</description></item>
+/// </list>
+///
+/// <para><b>Why the blend is per tile and not per column.</b> Dithering the
+/// column <i>classification</i> was rejected, and correctly: it manufactures
+/// exactly the single-column islands <see cref="EnforceMinimumRuns"/> then has to
+/// destroy, so the two features fight. Dithering the palette a tile at a time
+/// sidesteps that entirely — every column still belongs to exactly one biome, the
+/// run-length rule is untouched, and the interleave lives below the resolution
+/// the rule operates at.</para>
+///
+/// <para><b>Each boundary gets its own width.</b> A single configured width
+/// would trade one uniform artefact for another; the width is drawn per boundary
+/// from a range, so no two borders in a world look like the same border.</para>
 ///
 /// <para>Engine-free: pure arithmetic over content config, so the whole step is
 /// testable under <c>dotnet test</c>.</para>
@@ -35,6 +53,12 @@ public static class BiomeClassifier
     private const string HumidityKey = "humidity";
     private const string JitterKey = "seam_jitter";
 
+    /// <summary>Picks each boundary's band width; see <see cref="ApplyTransitions"/>.</summary>
+    private const string TransitionWidthKey = "transition_width";
+
+    /// <summary>Seeds the field that displaces a boundary from row to row.</summary>
+    private const string TransitionWanderKey = "transition_dither";
+
     /// <summary>
     /// Frequency of the seam-jitter field, in lattice cells per column. Fixed
     /// rather than authored: it controls how *often* a seam wanders, while
@@ -46,6 +70,27 @@ public static class BiomeClassifier
 
     /// <summary>Octaves in the jitter field. One: this is a wobble, not terrain.</summary>
     private const int JitterOctaves = 2;
+
+    /// <summary>
+    /// Frequency of the band-width field, in lattice cells per column. Much
+    /// higher than <see cref="JitterFrequency"/> on purpose: this is sampled once
+    /// per boundary, and boundaries are hundreds of columns apart, so a low
+    /// frequency would hand every boundary in a region the same width and undo
+    /// the whole point of drawing it.
+    /// </summary>
+    private const double TransitionWidthFrequency = 1.0 / 64.0;
+
+    /// <summary>
+    /// Frequency of the boundary-wander field, in lattice cells per row. This
+    /// sets how tall the fingers two biomes interlock as are: 1/24 makes the edge
+    /// hold a direction for a couple of dozen rows before turning, which reads as
+    /// an interlocking border. Much higher and it frays into noise; much lower
+    /// and the boundary is a straight line that happens to lean.
+    /// </summary>
+    private const double TransitionWanderFrequency = 1.0 / 24.0;
+
+    /// <summary>Octaves in that field. Two, so the fingers are irregular rather than sinusoidal.</summary>
+    private const int TransitionWanderOctaves = 2;
 
     /// <summary>
     /// Classifies every column of a world.
@@ -109,7 +154,141 @@ public static class BiomeClassifier
         }
 
         EnforceMinimumRuns(biomeIds, config.MinRunColumns);
-        return new BiomeMap(biomeIds);
+
+        // Bands are computed after the run-length pass, never before: that pass
+        // moves boundaries, and a band built around a boundary that then moves
+        // would sit in the wrong place with nothing to say it had.
+        string?[] blendIds = new string?[biomeIds.Length];
+        double[] blendOffsets = new double[biomeIds.Length];
+        int[] boundaryColumns = new int[biomeIds.Length];
+        FbmNoise? wanderField = null;
+
+        if (config.Transition is BiomeTransitionConfig transition && transition.MaxColumns > 0)
+        {
+            ApplyTransitions(
+                biomeIds,
+                blendIds,
+                blendOffsets,
+                boundaryColumns,
+                transition,
+                new FbmNoise(
+                    stream.Derive(TransitionWidthKey),
+                    new FbmParameters(1, TransitionWidthFrequency)));
+
+            wanderField = new FbmNoise(
+                stream.Derive(TransitionWanderKey),
+                new FbmParameters(TransitionWanderOctaves, TransitionWanderFrequency));
+        }
+
+        return new BiomeMap(biomeIds, blendIds, blendOffsets, boundaryColumns, wanderField);
+    }
+
+    /// <summary>
+    /// Gives every internal boundary a band of columns that carry the biome on
+    /// the other side plus a weight, so materialisation can interleave the two
+    /// (VOID-060).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>What a band stores is geometry, not a probability.</b> Each
+    /// column records where it sits between the two biomes and which boundary it
+    /// belongs to; <see cref="BiomeMap.TakesBlendAt"/> then moves the boundary
+    /// from row to row and asks which side of it each tile fell on. The derived
+    /// weight — half and half on the boundary, nothing at the edges — exists for
+    /// the roughness crossfade, which needs a continuous quantity rather than a
+    /// side.</para>
+    ///
+    /// <para><b>Each band is clamped to half the run on either side of it</b>, so
+    /// two nearby boundaries cannot overlap and paint a column with a third
+    /// biome's worth of confusion. That makes the configured maximum an
+    /// expression of intent rather than a promise about any one border — a
+    /// boundary between two short runs gets a narrow band whatever the config
+    /// asks for.</para>
+    ///
+    /// <para>Boundaries are visited left to right and a later band overwrites an
+    /// earlier one where they meet. The order is fixed and explicit so the
+    /// output is reproducible; the clamp above makes the overlap rare enough that
+    /// which rule wins is close to moot.</para>
+    /// </remarks>
+    private static void ApplyTransitions(
+        string[] biomeIds,
+        string?[] blendIds,
+        double[] blendOffsets,
+        int[] boundaryColumns,
+        BiomeTransitionConfig transition,
+        FbmNoise widthField)
+    {
+        int minWidth = Math.Max(0, transition.MinColumns);
+        int maxWidth = Math.Max(minWidth, transition.MaxColumns);
+
+        int runStart = 0;
+
+        for (int boundary = 1; boundary <= biomeIds.Length; boundary++)
+        {
+            bool endOfRun = boundary == biomeIds.Length
+                || !string.Equals(biomeIds[boundary], biomeIds[boundary - 1], StringComparison.Ordinal);
+
+            if (!endOfRun)
+            {
+                continue;
+            }
+
+            // The final run ends at the world edge rather than at a boundary, so
+            // there is nothing on the other side of it to blend towards.
+            if (boundary == biomeIds.Length)
+            {
+                break;
+            }
+
+            int leftRunLength = boundary - runStart;
+            int rightRunLength = RunLengthFrom(biomeIds, boundary);
+
+            // SampleUnit is [0, 1], so this lands anywhere in the configured
+            // range; sampled at the boundary column, so the width is a property
+            // of where the border is rather than of how many came before it.
+            double unit = widthField.SampleUnit(boundary);
+            int width = minWidth + (int)(unit * (maxWidth - minWidth + 1));
+            width = Math.Min(width, maxWidth);
+            width = Math.Min(width, leftRunLength / 2);
+            width = Math.Min(width, rightRunLength / 2);
+
+            if (width > 0)
+            {
+                string leftBiome = biomeIds[boundary - 1];
+                string rightBiome = biomeIds[boundary];
+
+                for (int offset = -width; offset <= width; offset++)
+                {
+                    int x = boundary + offset;
+                    if (x < 0 || x >= biomeIds.Length)
+                    {
+                        continue;
+                    }
+
+                    // Signed position within the band: -1 at its left edge, 0 on
+                    // the boundary, +1 at its right. The +1 in the divisor keeps
+                    // the outermost column just inside the range rather than
+                    // exactly on it, so it still blends.
+                    blendIds[x] = offset < 0 ? rightBiome : leftBiome;
+                    blendOffsets[x] = offset / (double)(width + 1);
+                    boundaryColumns[x] = boundary;
+                }
+            }
+
+            runStart = boundary;
+        }
+    }
+
+    /// <summary>Length of the run of identical ids beginning at <paramref name="start"/>.</summary>
+    private static int RunLengthFrom(string[] biomeIds, int start)
+    {
+        int x = start + 1;
+        while (x < biomeIds.Length
+            && string.Equals(biomeIds[x], biomeIds[start], StringComparison.Ordinal))
+        {
+            x++;
+        }
+
+        return x - start;
     }
 
     /// <summary>

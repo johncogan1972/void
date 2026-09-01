@@ -254,6 +254,30 @@ public static class WorldTypeRegistryLoader
     {
         BiomeClassificationConfig config = worldType.BiomeClassification;
 
+        // A transition band is a half-width in columns, so a negative one is
+        // meaningless and an inverted range is always a typo. Both are refused
+        // rather than clamped: silently swapping the two would generate a world
+        // the author did not ask for and had no way to notice.
+        if (config.Transition is BiomeTransitionConfig transition)
+        {
+            if (transition.MinColumns < 0)
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' biome_classification.transition.min_columns is "
+                    + $"{transition.MinColumns}; it is a half-width in columns and cannot be "
+                    + "negative.");
+            }
+
+            if (transition.MaxColumns < transition.MinColumns)
+            {
+                throw new ContentLoadException(
+                    $"World type '{worldType.Id}' biome_classification.transition has "
+                    + $"max_columns {transition.MaxColumns} below min_columns "
+                    + $"{transition.MinColumns}; each boundary draws its width from "
+                    + "[min, max], so the range must not be inverted.");
+            }
+        }
+
         CheckClimateField(worldType, "temperature", config.Temperature);
         CheckClimateField(worldType, "humidity", config.Humidity);
 
