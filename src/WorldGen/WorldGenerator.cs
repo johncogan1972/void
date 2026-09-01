@@ -86,6 +86,14 @@ public static class WorldGenerator
 		// only ever ordered by convention.
 		context.SetHeightmap(HeightmapGenerator.Generate(context, boundaries));
 
+		// Phase 2 step 7 -- caves (VOID-065). Runs here, in Generate, because worms
+		// are global: one walks hundreds of tiles across many chunks, so its path
+		// cannot be discovered from inside the chunk being materialised. What this
+		// produces is paths, not tiles; rasterising them stays per chunk, which is
+		// what keeps materialisation a pure function of the chunk coordinate. See
+		// CaveNetwork for the split.
+		context.SetCaveNetwork(WormCarver.Generate(context, boundaries));
+
 		return new WorldManifest
 		{
 			WorldId = worldId,

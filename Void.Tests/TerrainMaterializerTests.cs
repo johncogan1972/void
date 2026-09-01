@@ -79,10 +79,15 @@ public class TerrainMaterializerTests
     }
 
     /// <summary>
-    /// No gaps and no floating rows: every tile above the surface is air, every
-    /// tile from the surface down is solid. Cave carving in W5 subtracts from
-    /// this, so a hole here becomes a hole in the finished world that nothing
-    /// downstream would flag.
+    /// No gaps and no floating rows: every tile above the surface is air, and
+    /// every tile from the surface down is solid <b>except where a tunnel was
+    /// carved</b> (VOID-065).
+    ///
+    /// <para>The exception is stated against the cave network rather than waived,
+    /// which keeps the assertion sharp: below-surface air is allowed only where
+    /// carving put it, so a fill bug that left a hole somewhere no worm went
+    /// still fails here. Without that, the whole below-surface half of this test
+    /// would have had to be dropped when carving landed.</para>
     /// </summary>
     [Fact]
     public void EveryColumnIsAirAboveTheSurfaceAndSolidBelowIt()
@@ -120,9 +125,13 @@ public class TerrainMaterializerTests
                     {
                         Assert.True(tile.IsAir, $"Column {worldX} row {worldY} is above the surface ({surfaceY}) but is not air.");
                     }
+                    else if (!context.CaveNetwork.IsCarved(worldX, worldY))
+                    {
+                        Assert.False(tile.IsAir, $"Column {worldX} row {worldY} is at or below the surface ({surfaceY}), was not carved, but is air.");
+                    }
                     else
                     {
-                        Assert.False(tile.IsAir, $"Column {worldX} row {worldY} is at or below the surface ({surfaceY}) but is air.");
+                        Assert.True(tile.IsAir, $"Column {worldX} row {worldY} was carved but is still solid.");
                     }
                 }
             }
