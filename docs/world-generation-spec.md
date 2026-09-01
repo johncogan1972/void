@@ -1,6 +1,6 @@
 # World Generation — Feature Spec
 
-**Version:** 0.6
+**Version:** 0.7
 **Status:** Draft
 **Companion to:** GDD §3, §4
 **Sub-specs:** `world-data-model-spec.md`, `cave-generation-spec.md`
@@ -103,10 +103,24 @@ Generation runs as five sequential phases. Each phase is deterministic, seeded f
 
 ### Phase 1 — Structural
 
+**Step numbers are identities, not execution order.** They are referenced from code comments and shipped tickets, so they are never renumbered — the same rule that made the materialisation step W3b rather than a renumbering of W4-W14. Phase 1 executes in the order **1, 3, 4, 2**, and the list below is written in that order.
+
 1. **Seed initialisation.** World seed drives a master RNG. Sub-streams derived per phase and per sub-system via a well-defined key (e.g. `hash(seed, "phase1.heightmap")`).
-2. **Heightmap.** 1D noise across world width defines base surface elevation. Multiple octaves for terrain variety. Output: array of surface Y-values, one per column.
 3. **Layer boundaries.** Compute row ranges for each layer from the world size + configured proportions. Written into world metadata.
 4. **Biome map.** 2D noise + rule-based classification across the surface strip. Each surface column is assigned a primary biome. Biome transitions blend over a small horizontal band.
+
+    Runs **before** the heightmap (VOID-061). It reads the climate fields and never the surface, so nothing about it depended on the heightmap existing; the previous ordering was convention rather than a dependency.
+2. **Heightmap.** 1D noise across world width defines base surface elevation. Multiple octaves for terrain variety. Output: array of surface Y-values, one per column.
+
+    Runs **last in this phase**, because surface roughness is per biome and this step therefore has to know which biome owns a column.
+
+    The surface is **two fields, not one**: a low-frequency base shape mapped onto the surface band, plus a high-frequency `detail` displacement measured in rows added on top, then the slope limiter. They are separate because fBm normalises to a fixed total amplitude — roughening the base octave stack pays for texture by taking amplitude away from the hills. Measured on the shipped config, raising persistence to 0.70 cut the world's elevation range from 83 rows to 71 while roughening it; the same roughness added as a detail term left the range at 87.
+
+    Without the detail term the surface changes by at most one row per column and is flat in ~81% of them, so quantising a gentle ramp to whole rows lands the steps at even intervals and the ground reads as a **staircase** (VOID-061, found in the VOID-057 viewer). The detail term moves where each step falls, which is what breaks the regularity — it is not there to make terrain steeper on average.
+
+    Roughness is authored per biome as `surface_detail` on the biome, falling back to the world type's `heightmap.detail`. Each biome samples a **decorrelated field**, derived per biome id, so one biome's roughness is not another's at a different amplitude.
+
+    `max_column_delta` remains a hard cap enforced by a left-to-right limiter, and is a **safety net rather than a shaping tool**: on shipped values it alters 0 of 4,199 columns. It exists so that no octave stack a data file can express — including one authored later — can produce a single-column cliff.
 
 ### Phase 2 — Terrain shaping
 
