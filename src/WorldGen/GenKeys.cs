@@ -24,6 +24,15 @@ public static class GenKeys
     public const string Phase1Heightmap = "phase1.heightmap";
     public const string Phase1BiomeMap = "phase1.biome_map";
 
+    /// <summary>
+    /// The surface roughness field of <see cref="SurfaceDetailConfig"/>
+    /// (VOID-061). A key of its own rather than more draws on
+    /// <see cref="Phase1Heightmap"/>: the two fields are sampled independently,
+    /// and sharing a stream would make the base shape depend on whether detail
+    /// was configured at all.
+    /// </summary>
+    public const string Phase1HeightmapDetail = "phase1.heightmap_detail";
+
     // Phase 2 — terrain shaping (steps 6-8). Step 5, terrain materialisation,
     // has no key on purpose: it is a pure function of the heightmap, the biome
     // map and the biome palettes, so there is nothing for a stream to decide.
@@ -54,6 +63,7 @@ public static class GenKeys
     public static IReadOnlyList<string> All { get; } =
     [
         Phase1Heightmap,
+        Phase1HeightmapDetail,
         Phase1BiomeMap,
         Phase2MacroFeatures,
         Phase2Caves,

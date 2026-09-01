@@ -119,7 +119,46 @@ public static class BiomeRegistryLoader
             }
 
             CheckSubsurfaceDepth(biome);
+            CheckSurfaceDetail(biome);
             CheckUndergroundVariant(biome, biomes);
+        }
+    }
+
+    /// <summary>
+    /// Rejects an unusable <c>surface_detail</c> block (VOID-061).
+    /// </summary>
+    /// <remarks>
+    /// Null is legal and means "use the world type's <c>heightmap.detail</c>",
+    /// so absence is not this check's business. What it does catch is a block
+    /// that is present and wrong: an octave stack outside
+    /// <see cref="FbmParameters"/>' range, or a negative amplitude. The latter is
+    /// always a typo rather than a choice — a negative amplitude generates the
+    /// same terrain as its positive counterpart with the field mirrored — so
+    /// accepting it would silently do something the author did not ask for.
+    /// </remarks>
+    private static void CheckSurfaceDetail(BiomeDefinition biome)
+    {
+        if (biome.SurfaceDetail is not SurfaceDetailConfig detail)
+        {
+            return;
+        }
+
+        try
+        {
+            detail.ToFbmParameters();
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new ContentLoadException(
+                $"Biome '{biome.Id}' has an invalid surface_detail octave stack: {ex.Message}");
+        }
+
+        if (!double.IsFinite(detail.AmplitudeRows) || detail.AmplitudeRows < 0.0)
+        {
+            throw new ContentLoadException(
+                $"Biome '{biome.Id}' surface_detail.amplitude_rows is {detail.AmplitudeRows}; "
+                + "it is a peak displacement in rows and must be finite and not negative. Omit "
+                + "the block to inherit the world type's roughness, or set 0 for a smooth surface.");
         }
     }
 

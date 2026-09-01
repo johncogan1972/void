@@ -35,89 +35,90 @@ namespace Void;
 /// </summary>
 public static class WorldGenerator
 {
-    /// <summary>
-    /// Recorded into <see cref="WorldManifest.GenVersion"/>. Bump it whenever a
-    /// change makes an existing seed generate a different world, so a save can
-    /// be told apart from one this build would reproduce.
-    /// </summary>
-    public const string GenVersion = "0.1.0";
+	/// <summary>
+	/// Recorded into <see cref="WorldManifest.GenVersion"/>. Bump it whenever a
+	/// change makes an existing seed generate a different world, so a save can
+	/// be told apart from one this build would reproduce.
+	/// </summary>
+	public const string GenVersion = "0.1.0";
 
-    /// <summary>
-    /// Stand-in prefab id for manifest fields that phases 2-5 will fill. Not a
-    /// registered prefab on purpose: anything that tries to resolve it fails
-    /// loudly instead of quietly placing the wrong structure.
-    /// </summary>
-    public const string UnassignedPrefabId = "void:unassigned";
+	/// <summary>
+	/// Stand-in prefab id for manifest fields that phases 2-5 will fill. Not a
+	/// registered prefab on purpose: anything that tries to resolve it fails
+	/// loudly instead of quietly placing the wrong structure.
+	/// </summary>
+	public const string UnassignedPrefabId = "void:unassigned";
 
-    /// <summary>
-    /// Runs the pipeline and returns the world's manifest.
-    /// </summary>
-    /// <param name="context">Seed, dimensions, world-type config and registries.</param>
-    /// <param name="worldId">
-    /// Identity of the world being created. An input rather than a fresh
-    /// <c>Guid</c>: generation must be reproducible, and the campaign that owns
-    /// the world is what decides its id anyway.
-    /// </param>
-    public static WorldManifest Generate(GenerationContext context, Guid worldId)
-    {
-        ArgumentNullException.ThrowIfNull(context);
+	/// <summary>
+	/// Runs the pipeline and returns the world's manifest.
+	/// </summary>
+	/// <param name="context">Seed, dimensions, world-type config and registries.</param>
+	/// <param name="worldId">
+	/// Identity of the world being created. An input rather than a fresh
+	/// <c>Guid</c>: generation must be reproducible, and the campaign that owns
+	/// the world is what decides its id anyway.
+	/// </param>
+	public static WorldManifest Generate(GenerationContext context, Guid worldId)
+	{
+		ArgumentNullException.ThrowIfNull(context);
 
-        // Phase 1 — structural, in spec §6 order: dimensions and layer
-        // boundaries (steps 1 and 3), then the heightmap (step 2), then the
-        // biome map (step 4). Each generating step derives its own stream from
-        // the context by GenKeys key, as phases 2-5 will; none of them may
-        // thread a generator in from the phase before.
-        WorldDimensions dimensions = ComputeDimensions(context.SizePreset);
-        LayerBoundaries boundaries =
-            LayerBoundaryCalculator.Compute(dimensions.HeightTiles, context.WorldType.LayerProportions);
+		// Phase 1 — structural, in spec §6 order: dimensions and layer
+		// boundaries (steps 1 and 3), then the heightmap (step 2), then the
+		// biome map (step 4). Each generating step derives its own stream from
+		// the context by GenKeys key, as phases 2-5 will; none of them may
+		// thread a generator in from the phase before.
+		WorldDimensions dimensions = ComputeDimensions(context.SizePreset);
+		LayerBoundaries boundaries =
+			LayerBoundaryCalculator.Compute(dimensions.HeightTiles, context.WorldType.LayerProportions);
 
-        // The heightmap is phase output, not manifest data: it is far too large
-        // to serialise per world and is cheap to reproduce from the seed. It
-        // goes onto the context, which is where every later phase reads it —
-        // macro features overlay it, biome classification and structure
-        // placement read it. Set before any of them run, exactly once.
-        context.SetHeightmap(HeightmapGenerator.Generate(context, boundaries));
+		// The biome map is phase output, not manifest data: it is far too large
+		// to serialise per world and is cheap to reproduce from the seed. It
+		// reads the climate fields and never the surface, which is what lets it
+		// run first. The underground layer is not a second map: it follows from
+		// this one, column by column, through BiomeMap.UndergroundBiomeAt.
+		context.SetBiomeMap(BiomeClassifier.Generate(context));
 
-        // The biome map is phase output for the same reasons, and is generated
-        // after the heightmap only because that is spec §6's step order — it
-        // reads the climate fields, not the surface. The underground layer is
-        // not a second map: it follows from this one, column by column, through
-        // BiomeMap.UndergroundBiomeAt.
-        context.SetBiomeMap(BiomeClassifier.Generate(context));
+		// The heightmap is phase output for the same reasons, and now runs
+		// *after* the biome map rather than before it (VOID-061, spec §6). Surface
+		// roughness is per biome, so this step has to know which biome owns a
+		// column before it can decide how rough that column is. Nothing is lost by
+		// the swap: classification never read the surface, so the two steps were
+		// only ever ordered by convention.
+		context.SetHeightmap(HeightmapGenerator.Generate(context, boundaries));
 
-        return new WorldManifest
-        {
-            WorldId = worldId,
-            WorldType = context.WorldType.Id,
-            Seed = context.Seed,
-            GenVersion = GenVersion,
-            SizePreset = context.SizePreset.Id,
-            Dimensions = dimensions,
-            LayerBoundaries = boundaries,
+		return new WorldManifest
+		{
+			WorldId = worldId,
+			WorldType = context.WorldType.Id,
+			Seed = context.Seed,
+			GenVersion = GenVersion,
+			SizePreset = context.SizePreset.Id,
+			Dimensions = dimensions,
+			LayerBoundaries = boundaries,
 
-            // Populated by phase 4 (spec §6, steps 12 and 13); placeholders
-            // until then. They are required members of the manifest, so they
-            // must hold *something* — these values are deliberately not
-            // plausible spawn output: row 0 is the top of the sky, and the lair
-            // prefab id resolves to nothing.
-            PlayerSpawn = new TilePosition(0, 0),
-            MainBossLair = new BossLair(0, 0, UnassignedPrefabId),
-        };
-    }
+			// Populated by phase 4 (spec §6, steps 12 and 13); placeholders
+			// until then. They are required members of the manifest, so they
+			// must hold *something* — these values are deliberately not
+			// plausible spawn output: row 0 is the top of the sky, and the lair
+			// prefab id resolves to nothing.
+			PlayerSpawn = new TilePosition(0, 0),
+			MainBossLair = new BossLair(0, 0, UnassignedPrefabId),
+		};
+	}
 
-    /// <summary>
-    /// Tile extents straight from the preset, with chunk counts rounded
-    /// <b>up</b>: a world height that is not a whole number of chunks still
-    /// needs the last, partly-used chunk row to exist. Medium (6400x1800) gives
-    /// 100 x 29 chunks, the edge-padded count of spec §5.
-    /// </summary>
-    private static WorldDimensions ComputeDimensions(WorldSizePreset preset) =>
-        new WorldDimensions(
-            preset.WidthTiles,
-            preset.HeightTiles,
-            CeilDiv(preset.WidthTiles, Chunk.Width),
-            CeilDiv(preset.HeightTiles, Chunk.Height));
+	/// <summary>
+	/// Tile extents straight from the preset, with chunk counts rounded
+	/// <b>up</b>: a world height that is not a whole number of chunks still
+	/// needs the last, partly-used chunk row to exist. Medium (6400x1800) gives
+	/// 100 x 29 chunks, the edge-padded count of spec §5.
+	/// </summary>
+	private static WorldDimensions ComputeDimensions(WorldSizePreset preset) =>
+		new WorldDimensions(
+			preset.WidthTiles,
+			preset.HeightTiles,
+			CeilDiv(preset.WidthTiles, Chunk.Width),
+			CeilDiv(preset.HeightTiles, Chunk.Height));
 
-    /// <summary>Integer division rounding up. Both arguments are positive here.</summary>
-    private static int CeilDiv(int value, int divisor) => (value + divisor - 1) / divisor;
+	/// <summary>Integer division rounding up. Both arguments are positive here.</summary>
+	private static int CeilDiv(int value, int divisor) => (value + divisor - 1) / divisor;
 }
