@@ -150,7 +150,12 @@ Open only what the task needs. Descriptions are the summary — use them to deci
 | Anything cross-cutting or unfamiliar | GDD.md |
 
 ## Godot commands
-Project root: /run/media/system/Game_Drive_Two/gamedev/godot-projects/void
+Project root: the repo root — resolve it from the session's working directory,
+don't hard-code it. The drive is removable and its mount point is not stable:
+udisks has named it both `Game_Drive_Two` and `Game Drive Two`, under either
+`/run/media/system` or `/run/media/<user>`. Anything that pins one spelling
+breaks on the next mount (VOID-069).
+
 Always pass --path explicitly; never rely on cwd. Godot 4.7.
 
 - Verify all:    tests/check.sh            (parse, lint, build, cstest, import, smoke, gdtest, export)
@@ -185,7 +190,14 @@ Rules:
 - A SKIP is not a PASS. Rungs 2/3/4 skip when their tool is missing. `--strict`
   (or `CHECK_STRICT=1`) turns those skips into failures; CI always uses it.
 - Godot must be the .NET build (`godot --version` shows `.mono`), or rung 3 output
-  compiles but the engine cannot load it.
+  compiles but the engine cannot load it. The ladder checks this itself.
+- **A PASS is only a PASS if the tool ran.** Before any Godot rung, `check.sh`
+  proves `$GODOT` executes and is the `.mono` build, failing as `godot FAIL`
+  with exit 99 if not. Without that preflight, rungs 1/5/6/8 reported PASS —
+  script counts and frame counts included — against a Godot that was never
+  there, because they detect failure by grepping for error patterns and a 127
+  exit prints none (VOID-069). Never weaken this to a SKIP: an unrunnable
+  toolchain is not an absent optional linter.
 
 ## Coding conventions
 

@@ -9,7 +9,8 @@
 #        8 export
 #
 # Output is deliberately terse: one line per rung. Error detail is printed
-# only for the rung that fails. Exit code is the rung number that failed.
+# only for the rung that fails. Exit code is the rung number that failed, or 99
+# for a problem outside the rungs (an unrunnable Godot, see godot_preflight).
 
 set -uo pipefail
 
@@ -36,6 +37,48 @@ done
 wants() { [[ " ${RUNGS[*]} " == *" $1 "* ]]; }
 pass()  { printf '%-8s PASS  %s\n' "$1" "${2:-}"; }
 fail()  { printf '%-8s FAIL  %s\n' "$1" "${2:-}"; }
+
+# Rungs that shell out to Godot. Kept beside the preflight below so the two
+# cannot drift: a new Godot-dependent rung must be added here or it will run
+# unguarded.
+GODOT_RUNGS=(1 5 6 7 8)
+
+# Preflight: prove Godot actually runs before any rung claims it did.
+#
+# Every Godot rung greps engine output rather than trusting $?, because
+# --import and --check-only both exit 0 while printing SCRIPT ERROR to stderr.
+# That makes the ladder blind to the opposite failure: when the binary cannot
+# execute at all, the exit is 127 and the message does not match ERR_RE, so the
+# grep finds nothing and "no errors" is reported as PASS. Rungs 1, 5, 6 and 8
+# have all claimed success -- script counts, frame counts and all -- against a
+# Godot that was never there (VOID-069).
+#
+# Unlike a missing gdlint this is never a skip. An unrunnable toolchain is not
+# an absent optional linter; it means the rungs that matter most checked
+# nothing. The .mono check is the same requirement CLAUDE.md states: a non-.NET
+# build compiles the C# happily and then cannot load the assembly.
+godot_preflight() {
+	local want=0 r
+	for r in "${GODOT_RUNGS[@]}"; do
+		if wants "$r"; then want=1; break; fi
+	done
+	[[ "$want" == "0" ]] && return 0
+
+	# rc is captured before anything else runs: inside `if ! cmd`, $? holds the
+	# result of the negation rather than the command's own exit code.
+	local out rc
+	out=$("$GODOT" --version 2>&1)
+	rc=$?
+	if [[ $rc -ne 0 ]]; then
+		fail godot "'$GODOT --version' exited $rc -- binary missing or not executable"
+		echo "$out" | head -5
+		exit 99
+	fi
+	if [[ "$out" != *.mono* ]]; then
+		fail godot "not the .NET build (${out%%$'\n'*}); C# compiles but the engine cannot load it"
+		exit 99
+	fi
+}
 
 # Exit code is the rung number, so a caller can tell which rung stopped it.
 rung_num() {
@@ -69,6 +112,8 @@ scripts() {
 	find "$ROOT" -name '*.gd' -not -path '*/.godot/*' -not -path '*/addons/*' \
 		-printf 'res://%P\n' | sort
 }
+
+godot_preflight
 
 # --- rung 1: parse -----------------------------------------------------------
 if wants 1; then
