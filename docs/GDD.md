@@ -1,6 +1,6 @@
 # Game Design Document — Void
 
-**Version:** 0.35 (High-Level Draft)
+**Version:** 0.36 (High-Level Draft)
 **Status:** Pre-production
 **Author:** John
 
@@ -673,7 +673,11 @@ Full authoritative-server networking on a mutable Terraria-scale world is one of
 **Rendering:**
 - Native rendering at 1× zoom shows tiles at 16 physical pixels each.
 - Player-controlled zoom levels supported at 1x, 2x, 3x (adjustable in settings). At 3x zoom, one tile displays as 48 physical pixels.
-- Pixel-perfect rendering (no bilinear filtering on tiles or sprites) to preserve pixel-art clarity at all zoom levels.
+- Pixel-perfect rendering (no bilinear filtering on tiles or sprites) to preserve pixel-art clarity at all zoom levels. Enforced by two settings together: nearest-neighbour texture filtering (`rendering/textures/canvas_textures/default_texture_filter=0`) and integer canvas scaling (`display/window/stretch/scale_mode="integer"`). Filtering alone still resamples when the viewport is scaled by a fraction; integer scaling alone still smooths within a sprite.
+- Zoom is whole-number only (1x, 2x, 3x). **Below 1x is not supported** — it would put a tile under 16 physical pixels, which breaks the above and widens on-screen awareness past the cap below.
+- **Stretch model: `canvas_items` + `expand` + `integer`, capped at a 2.0 aspect ratio.** Base viewport is 1280 x 800 (the Steam Deck panel, and the supported minimum). Godot magnifies by the largest whole factor that fits; whatever the window has left over **reveals more world rather than letterboxing**, so a non-multiple resolution is a wider view, not black bars. Measured: 1280x800 -> 1x, 80 x 50 tiles; 1920x1080 -> 1x, 120 x 67 tiles; 2560x1600 -> 2x, 80 x 50 tiles; 3840x2160 -> 2x, 120 x 67 tiles.
+- **Below the minimum, the view shrinks rather than crops.** A panel shorter than 800 (1366x768 and 1280x720 are both still common) cannot be served by magnifying — scale will not go under 1x — so it reveals less world instead: 1366x768 shows 85 x 48 tiles. Slightly under the Deck baseline, and deliberately so; hiding rows off the bottom edge instead would lose world and UI with nothing to indicate it.
+- **The 2.0 cap bounds that reveal.** Displays at or under 2.0 width:height (16:10, 16:9, 18:9) are unaffected. Wider panels (21:9, 32:9) pillarbox instead of revealing more. Reason: with multiplayer post-MVP, uncapped `expand` hands a 32:9 player roughly 2.2x the horizontal awareness of a Steam Deck player in the same co-op session — permanently and unfixably. The cap bounds the gap while leaving ultrawide fully usable. Implemented in `src/Settings/DisplayConfig.cs` (VOID-062).
 
 **Chunk dimensions in pixels:**
 - 64 × 64 tiles per chunk (per world-generation-spec §5) = 1024 × 1024 pixels per chunk at 1× zoom.
