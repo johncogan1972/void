@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 ContentBoot="*res://src/Content/ContentBoot.cs"
+DisplayBoot="*res://src/Settings/DisplayBoot.cs"
 
 [display]
 
@@ -25,6 +26,7 @@ window/size/viewport_width=1280
 window/size/viewport_height=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/stretch/scale_mode="integer"
 
 [dotnet]
 
